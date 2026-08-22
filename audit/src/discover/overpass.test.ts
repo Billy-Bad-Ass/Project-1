@@ -34,6 +34,24 @@ test('a social page is rejected rather than audited', () => {
   }
 });
 
+test('a directory listing is rejected, not audited as the business', () => {
+  // Found live: an OSM entry for a Bristol dentist pointed at an NHS listing,
+  // and the draft opened by telling the dentist nhs.uk was returning an error.
+  for (const url of [
+    'https://www.nhs.uk/ServiceDirectories/Pages/Dentist.aspx?oid=QD8',
+    'https://www.yell.com/biz/acme-plumbing-leeds',
+    'https://www.checkatrade.com/trades/acme',
+    'https://www.tripadvisor.co.uk/Restaurant_Review-g123',
+  ]) {
+    assert.equal(normaliseWebsite(url), null, `should reject ${url}`);
+  }
+});
+
+test('a builder default host is rejected as an unfinished presence', () => {
+  assert.equal(normaliseWebsite('https://acme.wixsite.com/plumbing'), null);
+  assert.equal(normaliseWebsite('https://acme.business.site'), null);
+});
+
 test('a lookalike domain is not mistaken for a social site', () => {
   assert.notEqual(normaliseWebsite('https://facebook-marketing-agency.co.uk'), null);
 });
