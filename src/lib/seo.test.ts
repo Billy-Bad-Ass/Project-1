@@ -29,3 +29,27 @@ test('a trailing slash is removed so paths do not double up', () => {
 test('a nested base path is preserved', () => {
   assert.equal(normaliseBasePath('/a/b'), '/a/b');
 });
+
+/* ----- unset repo variables arrive as empty strings, not undefined ----- */
+
+test('an empty base path is treated as unset', () => {
+  // CI passes an unconfigured repository variable as '', so the fallback has
+  // to trigger on empty, not just on undefined.
+  assert.equal(normaliseBasePath(''), '');
+});
+
+test('readEnv treats empty and whitespace values as unset', async () => {
+  const { readEnv } = await import('@config/site.config');
+
+  process.env.PSEO_TEST_VAR = '';
+  assert.equal(readEnv('PSEO_TEST_VAR'), undefined);
+
+  process.env.PSEO_TEST_VAR = '   ';
+  assert.equal(readEnv('PSEO_TEST_VAR'), undefined);
+
+  process.env.PSEO_TEST_VAR = ' cheapshark ';
+  assert.equal(readEnv('PSEO_TEST_VAR'), 'cheapshark');
+
+  delete process.env.PSEO_TEST_VAR;
+  assert.equal(readEnv('PSEO_TEST_VAR'), undefined);
+});

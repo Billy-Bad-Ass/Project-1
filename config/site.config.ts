@@ -52,9 +52,24 @@ export interface SiteConfig {
 }
 
 /**
+ * Read an environment variable, treating empty and whitespace-only as unset.
+ *
+ * `??` is not enough here. CI passes an unset repository variable through as
+ * an empty string rather than omitting it, so `process.env.X ?? 'default'`
+ * yields '' and the default never applies — which failed the very first deploy
+ * at the dataset step with `Unknown source ""`.
+ */
+function env(name: string): string | undefined {
+  const value = process.env[name];
+  return value === undefined || value.trim() === '' ? undefined : value.trim();
+}
+
+/**
  * A malformed basePath breaks every link and asset on the deployed site while
  * building perfectly locally, so normalise rather than trust the environment.
  */
+export { env as readEnv };
+
 export function normaliseBasePath(raw: string | undefined): string {
   const value = (raw ?? '').trim();
   if (value === '' || value === '/') return '';
@@ -65,15 +80,15 @@ export function normaliseBasePath(raw: string | undefined): string {
 export const site: SiteConfig = {
   name: 'Deal Ledger',
   tagline: 'Live game prices across every major PC store',
-  url: (process.env.SITE_URL ?? 'https://example.com').replace(/\/+$/, ''),
-  basePath: normaliseBasePath(process.env.BASE_PATH),
+  url: (env('SITE_URL') ?? 'https://example.com').replace(/\/+$/, ''),
+  basePath: normaliseBasePath(env('BASE_PATH')),
   description:
     'Track current and historical prices for PC games across Steam, GOG, Humble, Fanatical and more. Updated daily from live store data.',
   locale: 'en-US',
-  source: process.env.SITE_SOURCE ?? 'cheapshark',
+  source: env('SITE_SOURCE') ?? 'cheapshark',
   operator: 'Deal Ledger',
   contactEmail: 'hello@example.com',
-  monetisationEnabled: process.env.AFFILIATES_ENABLED === 'true',
+  monetisationEnabled: env('AFFILIATES_ENABLED') === 'true',
   sitemapChunkSize: 5000,
 
   affiliates: [
@@ -82,19 +97,19 @@ export const site: SiteConfig = {
     {
       label: 'Fanatical',
       hosts: ['fanatical.com'],
-      params: { ref: process.env.AFF_FANATICAL ?? '' },
+      params: { ref: env('AFF_FANATICAL') ?? '' },
       disclosureName: 'Fanatical',
     },
     {
       label: 'Green Man Gaming',
       hosts: ['greenmangaming.com'],
-      params: { gmgpt: process.env.AFF_GMG ?? '' },
+      params: { gmgpt: env('AFF_GMG') ?? '' },
       disclosureName: 'Green Man Gaming',
     },
     {
       label: 'Humble Bundle',
       hosts: ['humblebundle.com'],
-      params: { partner: process.env.AFF_HUMBLE ?? '' },
+      params: { partner: env('AFF_HUMBLE') ?? '' },
       disclosureName: 'Humble Bundle',
     },
   ],
