@@ -1,4 +1,5 @@
 import { findCategory, type Category } from './categories';
+import { countryAt } from './countries';
 
 /**
  * Finds real businesses via the OpenStreetMap Overpass API.
@@ -49,6 +50,9 @@ export interface AreaMatch {
   country: string | null;
   /** Sub-country code such as GB-BST, where present. */
   region: string | null;
+  /** A point inside the boundary, used to work out the country. */
+  lat: number | null;
+  lon: number | null;
   /** Human description for the log, e.g. "Bristol (GB, admin level 6)". */
   describe: string;
 }
@@ -64,9 +68,12 @@ export interface AreaMatch {
  */
 export function buildAreaQuery(area: string): string {
   const safeArea = area.replace(/["\\]/g, '');
+  // Relations, not areas: an area is a derived object with no coordinates, and
+  // coordinates are the only reliable way to tell fifteen Bristols apart.
+  // `out center` gives a point inside each boundary alongside its tags.
   return `[out:json][timeout:30];
-area["name"="${safeArea}"]["boundary"="administrative"];
-out tags;`;
+rel["name"="${safeArea}"]["boundary"="administrative"];
+out center tags;`;
 }
 
 export function parseAreas(raw: unknown): AreaMatch[] {
@@ -76,28 +83,44 @@ export function parseAreas(raw: unknown): AreaMatch[] {
 
   const areas: AreaMatch[] = [];
   for (const entry of elements) {
-    const element = entry as { id?: number; tags?: Record<string, unknown> };
+    const element = entry as {
+      id?: number;
+      tags?: Record<string, unknown>;
+      center?: { lat?: number; lon?: number };
+      lat?: number;
+      lon?: number;
+    };
     if (typeof element.id !== 'number' || !element.tags) continue;
     const tags = element.tags;
 
+    const lat = element.center?.lat ?? element.lat;
+    const lon = element.center?.lon ?? element.lon;
+
+    // Tagged codes are trusted when present; they simply usually are not.
+    const tagged =
+      firstString(tags, 'ISO3166-1', 'ISO3166-1:alpha2') ??
+      (firstString(tags, 'ISO3166-2')?.split('-')[0] ?? null);
+
+    const located =
+      typeof lat === 'number' && typeof lon === 'number' ? countryAt(lat, lon) : null;
+
+    const country = tagged ?? located?.code ?? null;
     const name = firstString(tags, 'name') ?? '(unnamed)';
     const adminLevel = firstString(tags, 'admin_level');
-    const country =
-      firstString(tags, 'ISO3166-1', 'ISO3166-1:alpha2') ??
-      firstString(tags, 'is_in:country_code') ??
-      null;
-    const region = firstString(tags, 'ISO3166-2');
-    const inferredCountry = country ?? (region ? (region.split('-')[0] ?? null) : null);
+
+    const parts = [country ?? 'country unknown'];
+    if (adminLevel) parts.push(`admin level ${adminLevel}`);
 
     areas.push({
-      id: element.id,
+      // Overpass area ids are the relation id offset by 3.6 billion.
+      id: 3_600_000_000 + element.id,
       name,
       adminLevel,
-      country: inferredCountry,
-      region: region ?? null,
-      describe: `${name}${inferredCountry ? ` (${inferredCountry}` : ' ('}${
-        adminLevel ? `${inferredCountry ? ', ' : ''}admin level ${adminLevel}` : ''
-      })`,
+      country,
+      region: firstString(tags, 'ISO3166-2'),
+      lat: typeof lat === 'number' ? lat : null,
+      lon: typeof lon === 'number' ? lon : null,
+      describe: `${name} (${parts.join(', ')})`,
     });
   }
 
@@ -114,9 +137,7 @@ export function chooseArea(areas: AreaMatch[], country?: string): AreaMatch | nu
   if (areas.length === 0) return null;
 
   const wanted = country?.trim().toUpperCase();
-  const pool = wanted
-    ? areas.filter((a) => a.country?.toUpperCase() === wanted || a.region?.toUpperCase().startsWith(`${wanted}-`))
-    : areas;
+  const pool = wanted ? areas.filter((a) => a.country?.toUpperCase() === wanted) : areas;
 
   if (pool.length === 0) return null;
 

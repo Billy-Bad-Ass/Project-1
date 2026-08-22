@@ -142,15 +142,32 @@ test('quotes in an area name cannot break out of the area query', () => {
   assert.doesNotMatch(query, /name"="King"s/);
 });
 
+test('the area query asks relations for their centre point', () => {
+  // Areas are derived objects with no coordinates; relations have them.
+  const query = buildAreaQuery('Bristol');
+  assert.match(query, /^rel\[/m);
+  assert.match(query, /out center tags;/);
+});
+
 /* ------------- place names are not unique ------------- */
 
-const areaEl = (id: number, tags: Record<string, string>) => ({ id, tags });
+/** Bristol UK and Bristol Tennessee, four thousand miles apart. */
+const BRISTOL_GB = { lat: 51.4545, lon: -2.5879 };
+const BRISTOL_US = { lat: 36.5951, lon: -82.1887 };
 
-test('several places sharing a name are all returned', () => {
+const areaEl = (
+  id: number,
+  tags: Record<string, string>,
+  center: { lat: number; lon: number } = BRISTOL_GB,
+) => ({ id, tags, center });
+
+test('country is derived from coordinates when tags do not carry it', () => {
+  // The live failure: fifteen areas named Bristol came back and not one
+  // declared its country. Coordinates always do.
   const areas = parseAreas({
     elements: [
-      areaEl(3600057, { name: 'Bristol', admin_level: '6', 'ISO3166-2': 'GB-BST' }),
-      areaEl(3601234, { name: 'Bristol', admin_level: '8', 'ISO3166-2': 'US-TN' }),
+      areaEl(57, { name: 'Bristol', admin_level: '6' }, BRISTOL_GB),
+      areaEl(1234, { name: 'Bristol', admin_level: '8' }, BRISTOL_US),
     ],
   });
   assert.equal(areas.length, 2);
@@ -158,17 +175,29 @@ test('several places sharing a name are all returned', () => {
   assert.equal(areas[1]?.country, 'US');
 });
 
+test('a relation id becomes an Overpass area id', () => {
+  const areas = parseAreas({ elements: [areaEl(57, { name: 'Bristol' })] });
+  assert.equal(areas[0]?.id, 3_600_000_057);
+});
+
+test('a tagged country code is trusted over the coordinate guess', () => {
+  const areas = parseAreas({
+    elements: [areaEl(1, { name: 'Somewhere', 'ISO3166-1': 'FR' }, BRISTOL_GB)],
+  });
+  assert.equal(areas[0]?.country, 'FR');
+});
+
 test('a country filter picks the right one of several same-named places', () => {
-  // The live bug: "Bristol" resolved to Tennessee and a whole outreach batch
-  // would have gone to the wrong continent.
+  // The original live bug: "Bristol" resolved to Tennessee, and a whole
+  // outreach batch would have gone to the wrong continent.
   const areas = parseAreas({
     elements: [
-      areaEl(3601234, { name: 'Bristol', admin_level: '8', 'ISO3166-2': 'US-TN' }),
-      areaEl(3600057, { name: 'Bristol', admin_level: '6', 'ISO3166-2': 'GB-BST' }),
+      areaEl(1234, { name: 'Bristol', admin_level: '8' }, BRISTOL_US),
+      areaEl(57, { name: 'Bristol', admin_level: '6' }, BRISTOL_GB),
     ],
   });
-  assert.equal(chooseArea(areas, 'GB')?.id, 3600057);
-  assert.equal(chooseArea(areas, 'US')?.id, 3601234);
+  assert.equal(chooseArea(areas, 'GB')?.id, 3_600_000_057);
+  assert.equal(chooseArea(areas, 'US')?.id, 3_600_001_234);
 });
 
 test('without a country the largest administrative area wins', () => {
@@ -179,14 +208,20 @@ test('without a country the largest administrative area wins', () => {
       areaEl(2, { name: 'Leeds', admin_level: '6' }),
     ],
   });
-  assert.equal(chooseArea(areas)?.id, 2);
+  assert.equal(chooseArea(areas)?.id, 3_600_000_002);
 });
 
 test('a country with no match yields null rather than the wrong place', () => {
   const areas = parseAreas({
-    elements: [areaEl(1, { name: 'Bristol', 'ISO3166-2': 'US-TN' })],
+    elements: [areaEl(1, { name: 'Bristol' }, BRISTOL_US)],
   });
   assert.equal(chooseArea(areas, 'GB'), null);
+});
+
+test('an area with no coordinates does not crash the run', () => {
+  const areas = parseAreas({ elements: [{ id: 1, tags: { name: 'Mystery' } }] });
+  assert.equal(areas.length, 1);
+  assert.equal(areas[0]?.country, null);
 });
 
 test('an unknown place name fails loudly instead of searching nowhere', async () => {
@@ -202,7 +237,7 @@ test('an unknown place name fails loudly instead of searching nowhere', async ()
 test('the wrong-country case names the places it did find', async () => {
   const fetchImpl = (async () =>
     new Response(
-      JSON.stringify({ elements: [areaEl(1, { name: 'Bristol', 'ISO3166-2': 'US-TN' })] }),
+      JSON.stringify({ elements: [areaEl(1, { name: 'Bristol' }, BRISTOL_US)] }),
       { status: 200 },
     )) as unknown as typeof fetch;
 
@@ -239,7 +274,7 @@ test('a successful run resolves the area then finds businesses', async () => {
     call += 1;
     const body =
       call === 1
-        ? { elements: [{ id: 3600057, tags: { name: 'Leeds', admin_level: '6', 'ISO3166-2': 'GB-LDS' } }] }
+        ? { elements: [{ id: 57, tags: { name: 'Leeds', admin_level: '6' }, center: { lat: 53.8, lon: -1.55 } }] }
         : { elements: [element(9, { name: 'Smile Dental', website: 'smile.co.uk' })] };
     return new Response(JSON.stringify(body), {
       status: 200,
