@@ -1,3 +1,4 @@
+import { robotsAllows } from '../lib/fetch-page';
 import type { Finding, Rule } from '../lib/types';
 
 /**
@@ -242,7 +243,13 @@ export const indexability: Rule = {
       });
     }
 
-    if (page.robotsTxt && /^\s*disallow:\s*\/\s*$/im.test(page.robotsTxt)) {
+    // Must be group-aware. A naive search for "Disallow: /" anywhere in the
+    // file reported nytimes.com and gov.uk as blocked from Google during a
+    // live run — both merely block specific crawlers (GPTBot and friends)
+    // under their own User-agent heading, which is normal and correct. A false
+    // critical finding is the most expensive bug this tool can have: the
+    // prospect checks it, finds it wrong, and stops reading.
+    if (page.robotsTxt && !robotsAllows(page.robotsTxt, '/', '*')) {
       findings.push({
         ruleId: 'indexability',
         severity: 'critical',
