@@ -13,7 +13,8 @@
     "check": "npm run typecheck && npm test",
     "fulfil": "tsx src/pipeline/fulfil.ts",
     "build:web": "tsx src/pipeline/build-web.ts",
-    "draft": "tsx src/pipeline/draft-emails.ts"
+    "draft": "tsx src/pipeline/draft-emails.ts",
+    "find": "tsx src/pipeline/find-prospects.ts"
   },
   "dependencies": {
     "node-html-parser": "^6.1.13",

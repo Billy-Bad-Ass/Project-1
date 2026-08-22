@@ -16,6 +16,50 @@ on:
         default: '2'
 
 jobs:
+  # Proves the discovery step works against the real Overpass API: turning a
+  # trade and a town into an auditable prospect list is the claim that removes
+  # the manual work, so it needs testing against the live service.
+  discover:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: audit
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: audit/package-lock.json
+      - run: npm ci
+
+      - name: Find real businesses
+        run: npm run find -- --what dentist --where Bristol --limit 25
+
+      - name: Audit what was found
+        run: npm run audit -- --list out/prospects.txt --concurrency 2
+
+      - name: Draft outreach for them
+        run: npm run draft -- --min-opportunity 40
+
+      - name: Show a draft
+        run: |
+          first=$(ls out/emails/*.txt 2>/dev/null | head -1)
+          if [ -n "$first" ]; then echo "--- $first ---"; cat "$first"; fi
+
+      - name: Show the outreach list
+        run: head -60 out/leads.md
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: discovery-run
+          path: |
+            audit/out/prospects.csv
+            audit/out/leads.md
+            audit/out/emails/
+            audit/out/reports/
+          retention-days: 14
+
   audit:
     runs-on: ubuntu-latest
     defaults:
