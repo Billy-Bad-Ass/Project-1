@@ -164,7 +164,9 @@ fixtures** — at a root domain and as a sub-directory deploy — so CI never
 depends on a third-party API or spends free quota.
 
 `.github/workflows/live-data.yml` runs the real fetch against the upstream APIs
-on demand and uploads the resulting dataset as an artifact.
+**on demand** (Actions → Live data check → Run workflow) and uploads the
+resulting dataset as an artifact. It is not on a schedule: firing it per push
+would hammer free APIs that ask for reasonable use.
 
 ## Optional: Firecrawl enrichment
 

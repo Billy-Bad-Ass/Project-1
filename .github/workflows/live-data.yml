@@ -1,16 +1,22 @@
 name: Live data check
 
 # Runs a real fetch against the upstream APIs and reports what came back.
-# Separate from CI on purpose: CI must stay offline and deterministic, while
-# this deliberately touches third-party services, so it is run on demand.
+#
+# Separate from CI on purpose: CI stays offline and deterministic against
+# committed fixtures, while this deliberately touches third-party services.
+#
+# On demand only. Firing it on every push would hammer free APIs that ask for
+# reasonable use — the same courtesy the pipeline's own throttling and caching
+# exist to provide. Run it when an adapter changes or a source looks wrong.
+#
+# Note: GitHub only offers workflow_dispatch for workflows present on the
+# default branch, so this becomes runnable from the Actions tab once merged.
 on:
   workflow_dispatch:
     inputs:
       limit:
         description: 'Items to fetch per source'
         default: '150'
-  push:
-    branches: ['claude/online-money-making-t5b3m4']
 
 jobs:
   live:
