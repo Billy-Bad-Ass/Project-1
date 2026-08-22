@@ -193,3 +193,60 @@ function mkFinding(severity: 'critical' | 'high' | 'medium' | 'low'): Finding {
     fix: 'f',
   };
 }
+
+/* ------- regressions found by auditing real websites ------- */
+
+test('blocking one crawler is not reported as blocking the whole site', () => {
+  // Found live: nytimes.com and gov.uk were both reported as blocked from
+  // Google because a naive search matched "Disallow: /" under a targeted
+  // User-agent. A false critical finding is the most expensive kind — the
+  // prospect checks it, finds it wrong, and stops reading.
+  const realistic = [
+    'User-agent: *',
+    'Disallow: /search',
+    'Allow: /',
+    '',
+    'User-agent: GPTBot',
+    'Disallow: /',
+    '',
+    'User-agent: CCBot',
+    'Disallow: /',
+  ].join('\n');
+
+  const findings = runAll('<html><body></body></html>', { robotsTxt: realistic });
+  const blocked = findings.find(
+    (f) => f.ruleId === 'indexability' && /whole site/i.test(f.title),
+  );
+  assert.equal(blocked, undefined, 'must not claim the site is blocked');
+});
+
+test('a genuine site-wide block is still caught', () => {
+  const findings = runAll('<html><body></body></html>', {
+    robotsTxt: 'User-agent: *\nDisallow: /',
+  });
+  const blocked = findings.find(
+    (f) => f.ruleId === 'indexability' && /whole site/i.test(f.title),
+  );
+  assert.ok(blocked, 'a real site-wide block must still be reported');
+  assert.equal(blocked.severity, 'critical');
+});
+
+test('a wildcard block is caught even when it follows other groups', () => {
+  const findings = runAll('<html><body></body></html>', {
+    robotsTxt: 'User-agent: Googlebot\nAllow: /\n\nUser-agent: *\nDisallow: /',
+  });
+  assert.ok(
+    findings.some((f) => f.ruleId === 'indexability' && /whole site/i.test(f.title)),
+  );
+});
+
+test('an empty Disallow means allow all, not block all', () => {
+  // "Disallow:" with no value is the documented way to permit everything.
+  const findings = runAll('<html><body></body></html>', {
+    robotsTxt: 'User-agent: *\nDisallow:',
+  });
+  assert.equal(
+    findings.find((f) => f.ruleId === 'indexability' && /whole site/i.test(f.title)),
+    undefined,
+  );
+});
