@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { summariseGameDeal } from '../lib/sources/cheapshark';
 import { discountPercent, slugify } from '../lib/util';
 import type { Offer, SourceItem } from '../lib/sources/types';
 
@@ -62,51 +63,6 @@ function priceBand(price: number | null): string | null {
   if (price < 10) return 'Under $10';
   if (price < 20) return 'Under $20';
   return null;
-}
-
-function buildSummary(
-  title: string,
-  offers: Offer[],
-  normalPrice: number,
-  cheapestEver: { price: number; date: string } | null,
-): string {
-  const parts: string[] = [];
-  const best = offers[0];
-
-  if (best?.price != null && offers.length > 1) {
-    parts.push(
-      `${title} is cheapest at ${best.merchant} for $${best.price.toFixed(2)}, ` +
-        `compared across ${offers.length} stores.`,
-    );
-  } else if (best?.price != null) {
-    parts.push(`${title} is currently $${best.price.toFixed(2)} at ${best.merchant}.`);
-  } else {
-    parts.push(`${title} is not currently listed for sale at any store we track.`);
-    parts.push(`Its last known list price was $${normalPrice.toFixed(2)}.`);
-    if (cheapestEver) {
-      parts.push(
-        `The lowest price ever recorded for it was $${cheapestEver.price.toFixed(2)}.`,
-      );
-    }
-    parts.push('We will list stores again here as soon as one stocks it.');
-  }
-
-  if (best?.discountPercent != null && best.discountPercent > 0) {
-    parts.push(`That is ${best.discountPercent}% below its $${normalPrice.toFixed(2)} list price.`);
-  }
-
-  if (cheapestEver && best?.price != null) {
-    if (best.price <= cheapestEver.price) {
-      parts.push('This matches the lowest price it has ever been.');
-    } else {
-      parts.push(
-        `Its all-time low was $${cheapestEver.price.toFixed(2)}, so today is ` +
-          `$${(best.price - cheapestEver.price).toFixed(2)} above the best it has been.`,
-      );
-    }
-  }
-
-  return parts.join(' ');
 }
 
 function generate(count: number): SourceItem[] {
@@ -190,7 +146,7 @@ function generate(count: number): SourceItem[] {
       id: `fixture-${index}`,
       slug: `${slugify(title)}`,
       title,
-      summary: buildSummary(title, offers, normalPrice, cheapestEver),
+      summary: summariseGameDeal({ title, normalPrice, offers, cheapestEver }),
       facts,
       offers,
       categories,

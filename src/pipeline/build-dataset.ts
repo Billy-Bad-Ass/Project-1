@@ -151,6 +151,20 @@ async function main(): Promise<void> {
     }
   }
   log(`  collections: ${cleanedCollections.length}`);
+
+  const { distinct, total, concentration, warn } = gate.diversity;
+  log(
+    `  phrasing:   ${distinct} distinct sentence shape(s) across ${total} pages ` +
+      `(largest covers ${(concentration * 100).toFixed(0)}%)`,
+  );
+  if (warn) {
+    log('');
+    log('  WARNING: most pages are phrased identically.');
+    log('  The numbers differ but the sentences do not, which is what search');
+    log('  engines look at when judging scaled content. Make the adapter branch');
+    log('  on more of its data before scaling this vertical up.');
+  }
+
   log(`\nWrote ${outPath}`);
 
   if (publishable.length === 0) {

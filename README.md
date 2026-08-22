@@ -94,10 +94,22 @@ Pages total:   398
   suppressed:  2 (not built at all)
 ```
 
-Pages with no offers are kept for readers but withheld from search. Summaries
-that differ only in their numbers are detected as templated and noindexed. This
-is deliberate: publishing thin pages at scale is the single fastest way to get
-a whole domain deindexed. See [`docs/playbook.md`](docs/playbook.md).
+Pages with no offers are kept for readers but withheld from search. Pages whose
+prose is identical apart from the figures are treated as near-duplicates and
+noindexed.
+
+Alongside the verdict, the gate reports **sentence-shape diversity** — how many
+distinct phrasings the adapter produced:
+
+```
+Sentence shapes: 22 distinct (largest covers 23% of pages)
+```
+
+This gates nothing, but a site where one shape covers most pages is one where
+every page makes the same statement with different values plugged in. The first
+live Open Library run scored 1 shape across 139 pages; the fix was to make the
+adapter branch on what the data actually says. See
+[`docs/playbook.md`](docs/playbook.md).
 
 ## Monetisation
 

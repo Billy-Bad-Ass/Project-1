@@ -9,7 +9,6 @@ const nextConfig = {
     // passed through untouched. Source images are already CDN-hosted.
     unoptimized: true,
   },
-  eslint: { ignoreDuringBuilds: true },
 };
 
 export default nextConfig;

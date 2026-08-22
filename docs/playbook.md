@@ -38,6 +38,33 @@ Those thresholds are deliberately strict. If you loosen them to publish more
 pages, you are opting into the risk, and the failure mode is not "ranks a bit
 worse" — it is the whole domain being deindexed.
 
+### The phrasing warning
+
+`data:build` and `data:stats` also report **sentence shapes**: how many
+distinct phrasings the adapter produced, and what share of pages the most
+common one covers.
+
+```
+Sentence shapes: 22 distinct (largest covers 23% of pages)
+```
+
+This gates nothing, because reusing structure across a catalogue is normal —
+the value of a price page is its numbers, not novel prose. But when one shape
+covers most of the site, every page is making the same statement with different
+values plugged in, and that is what a reviewer sees too.
+
+The first live Open Library run scored **1 distinct shape across 139 pages**.
+Every summary read "*X by Y, first published in Z. It holds an average of A out
+of 5 across B ratings.*" The fix was not to reword anything — it was to make the
+adapter **branch on what the data says**: a book with 12 ratings and one with
+12,000 deserve different sentences, and one with none deserves no rating
+sentence at all. Same for prices: a $30 spread between stores is worth saying
+out loud, and "cheapest everywhere" is a different fact from "cheapest at one
+store".
+
+If you see the warning, add branches to your adapter's summary builder. Do not
+add synonyms.
+
 **The defensible claim for this site is cross-merchant comparison and price
 history.** Steam will never show you GOG's price. That is the entire reason
 this site is allowed to exist, and every content decision should protect it.

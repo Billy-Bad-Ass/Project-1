@@ -33,9 +33,11 @@ Rules the rest of the system assumes:
   not a growth hack.
 - **Slugs must be unique.** Use `uniqueSlug` from `src/lib/util.ts`; a collision
   silently drops a page during static export.
-- **Write `summary` from the item's own numbers.** If your summaries differ only
-  by which noun was substituted, the `duplicate-shape` rule will noindex them —
-  correctly.
+- **Branch your `summary` on what the data says.** Substituting values into one
+  fixed sentence produces a site where every page makes the same statement.
+  `data:build` reports sentence-shape diversity and warns when one phrasing
+  dominates; the fix is more branches keyed on real conditions (a large price
+  spread, a tiny rating sample, no live listing), never synonyms.
 
 ## 2. Register it
 

@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { measureDiversity } from '../lib/quality';
 import type { Dataset } from '../lib/sources/types';
 
 /**
@@ -32,7 +33,7 @@ async function main(): Promise<void> {
     .map((item) => Math.min(...item.offers.filter((o) => o.price !== null).map((o) => o.price!)))
     .sort((a, b) => a - b);
 
-  const median = prices.length > 0 ? prices[Math.floor(prices.length / 2)]! : 0;
+  const median = prices.length > 0 ? prices[Math.floor(prices.length / 2)]! : null;
   const factCounts = dataset.items.map((item) => item.facts.length);
   const avgFacts =
     factCounts.length > 0 ? factCounts.reduce((a, b) => a + b, 0) / factCounts.length : 0;
@@ -48,8 +49,18 @@ async function main(): Promise<void> {
   out.push(`Collections:   ${dataset.collections.length}`);
   out.push(`Enriched:      ${enriched}`);
   out.push('');
+  const diversity = measureDiversity(dataset.items);
   out.push(`Avg facts/page: ${avgFacts.toFixed(1)}`);
-  out.push(`Median best price: $${median.toFixed(2)}`);
+  out.push(
+    `Sentence shapes: ${diversity.distinct} distinct ` +
+      `(largest covers ${(diversity.concentration * 100).toFixed(0)}% of pages)` +
+      (diversity.warn ? '  <-- too repetitive, see docs/playbook.md' : ''),
+  );
+  out.push(
+    median === null
+      ? 'Median best price: n/a (this source carries no prices)'
+      : `Median best price: $${median.toFixed(2)}`,
+  );
   out.push('');
 
   if (dataset.suppressed.length > 0) {

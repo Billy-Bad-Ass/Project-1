@@ -245,20 +245,61 @@ function humanSubject(subject: string): string {
     .join(' ');
 }
 
+/**
+ * Summary text that branches on what the data actually says.
+ *
+ * The first version of this emitted one sentence shape for every book, varying
+ * only the substituted values. A live run over 139 titles produced exactly one
+ * distinct skeleton at 100% concentration — the templated pattern search
+ * engines demote. Each branch below therefore makes a *different claim*, not a
+ * reworded one: a book with 12 ratings and a book with 12,000 warrant genuinely
+ * different statements, and a book with none warrants no rating sentence at all.
+ */
 function buildSummary(book: BookRow): string {
   const parts: string[] = [];
   const byline = book.authors.length > 0 ? ` by ${book.authors.join(' and ')}` : '';
   const year = book.firstPublishYear != null ? `, first published in ${book.firstPublishYear}` : '';
   parts.push(`${book.title}${byline}${year}.`);
 
-  if (book.ratingsAverage != null && book.ratingsCount != null) {
+  // Ratings: how much weight the average deserves depends on the sample size,
+  // so say that rather than printing the number regardless.
+  const average = book.ratingsAverage;
+  const count = book.ratingsCount;
+
+  if (average != null && count != null && count >= 100) {
+    const verdict = average >= 4.3 ? 'unusually well reviewed' : average >= 3.5 ? 'well received' : 'divisive';
     parts.push(
-      `It holds an average of ${book.ratingsAverage.toFixed(2)} out of 5 across ` +
-        `${book.ratingsCount.toLocaleString('en-US')} reader ratings.`,
+      `Readers rate it ${average.toFixed(2)} out of 5 from ${count.toLocaleString('en-US')} ` +
+        `ratings, a large enough sample to call it ${verdict}.`,
     );
+  } else if (average != null && count != null && count >= 10) {
+    parts.push(
+      `Its ${average.toFixed(2)} out of 5 average comes from only ${count} ratings, ` +
+        `too few to read much into.`,
+    );
+  } else if (average != null) {
+    parts.push(`It has barely been rated, so no reliable reader consensus exists yet.`);
   }
-  if (book.pages != null) {
+
+  // Length is worth mentioning when it is notable, not as boilerplate.
+  if (book.pages != null && book.pages >= 600) {
+    parts.push(`At around ${book.pages} pages it is a substantial commitment.`);
+  } else if (book.pages != null && book.pages <= 150) {
+    parts.push(`It is short, at roughly ${book.pages} pages.`);
+  } else if (book.pages != null) {
     parts.push(`Typical editions run about ${book.pages} pages.`);
+  }
+
+  // Age changes what the reader needs to know about buying it.
+  const age = book.firstPublishYear == null ? null : new Date().getUTCFullYear() - book.firstPublishYear;
+  if (age != null && age >= 70) {
+    parts.push('Editions of a book this old vary widely, so check the printing before buying.');
+  } else if (age != null && age <= 2) {
+    parts.push('It is recent enough that prices have not settled yet.');
+  }
+
+  if (!book.isbn13) {
+    parts.push('No ISBN is recorded for it, so retailer links may be unreliable.');
   }
 
   return parts.join(' ');

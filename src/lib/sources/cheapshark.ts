@@ -250,7 +250,12 @@ export const cheapsharkSource: DataSource = {
         id: gameID,
         slug: uniqueSlug(row.title, taken, gameID),
         title: row.title,
-        summary: buildSummary(row, offers, detail?.cheapestEver ?? null),
+        summary: summariseGameDeal({
+          title: row.title,
+          normalPrice: row.normalPrice,
+          offers,
+          cheapestEver: detail?.cheapestEver ?? null,
+        }),
         facts,
         offers,
         categories,
@@ -304,51 +309,78 @@ export const cheapsharkSource: DataSource = {
 };
 
 /**
- * Summary text built strictly from this item's own numbers. No template with
- * interchangeable adjectives — that is exactly the "scaled content" pattern
- * search engines demote.
+ * Summary text built strictly from this item's own numbers.
+ *
+ * Each branch states a different fact rather than rewording the same one. That
+ * matters: a live run whose pages all share one sentence shape is the scaled
+ * content pattern search engines demote, and `measureDiversity` in
+ * src/lib/quality.ts reports exactly that. Exported so the fixture generator
+ * produces identical prose to production instead of keeping a second copy that
+ * can drift.
  */
-function buildSummary(
-  row: DealRow,
-  offers: Offer[],
-  cheapestEver: { price: number; date: string } | null,
-): string {
+export function summariseGameDeal(params: {
+  title: string;
+  normalPrice: number | null;
+  offers: Offer[];
+  cheapestEver: { price: number; date: string } | null;
+}): string {
+  const { title, normalPrice, offers, cheapestEver } = params;
   const parts: string[] = [];
-  const best = offers[0];
 
-  if (best?.price != null && offers.length > 1) {
-    parts.push(
-      `${row.title} is cheapest at ${best.merchant} for $${best.price.toFixed(2)}, ` +
-        `compared across ${offers.length} stores.`,
-    );
-  } else if (best?.price != null) {
-    parts.push(`${row.title} is currently $${best.price.toFixed(2)} at ${best.merchant}.`);
-  } else {
-    // No live offer, but the historical figures are still real information, so
-    // the page is kept and merely de-indexed rather than thrown away.
-    parts.push(`${row.title} is not currently listed for sale at any store we track.`);
-    if (row.normalPrice != null) {
-      parts.push(`Its last known list price was $${row.normalPrice.toFixed(2)}.`);
+  const priced = offers.filter((offer) => offer.price !== null);
+  const best = priced[0] ?? null;
+
+  if (best === null) {
+    parts.push(`${title} is not currently listed for sale at any store we track.`);
+    if (normalPrice != null) {
+      parts.push(`Its last known list price was $${normalPrice.toFixed(2)}.`);
     }
     if (cheapestEver) {
-      parts.push(
-        `The lowest price ever recorded for it was $${cheapestEver.price.toFixed(2)}.`,
-      );
+      parts.push(`The lowest price ever recorded for it was $${cheapestEver.price.toFixed(2)}.`);
     }
     parts.push('We will list stores again here as soon as one stocks it.');
+    return parts.join(' ');
   }
 
-  if (best?.discountPercent != null && best.discountPercent > 0) {
-    parts.push(`That is ${best.discountPercent}% below its $${(row.normalPrice ?? 0).toFixed(2)} list price.`);
+  // How much the choice of store is worth to the reader is the single most
+  // useful thing this page knows, so lead with it when the spread is real.
+  const highest = priced[priced.length - 1]!.price!;
+  const spread = highest - best.price!;
+
+  if (priced.length > 1 && spread >= 5) {
+    parts.push(
+      `${title} ranges from $${best.price!.toFixed(2)} at ${best.merchant} to ` +
+        `$${highest.toFixed(2)} across ${priced.length} stores, so where you buy it ` +
+        `is worth $${spread.toFixed(2)}.`,
+    );
+  } else if (priced.length > 1) {
+    parts.push(
+      `${title} costs about the same everywhere right now, from $${best.price!.toFixed(2)} ` +
+        `at ${best.merchant} across ${priced.length} stores.`,
+    );
+  } else {
+    parts.push(`${title} is stocked by one store we track, ${best.merchant}, at $${best.price!.toFixed(2)}.`);
   }
 
-  if (cheapestEver && best?.price != null) {
-    if (best.price <= cheapestEver.price) {
+  const discount = best.discountPercent ?? 0;
+  if (discount >= 75) {
+    parts.push(`It is heavily discounted, at ${discount}% off its $${(normalPrice ?? 0).toFixed(2)} list price.`);
+  } else if (discount > 0) {
+    parts.push(`That is ${discount}% below its $${(normalPrice ?? 0).toFixed(2)} list price.`);
+  } else {
+    parts.push('It is not discounted anywhere at the moment.');
+  }
+
+  if (cheapestEver) {
+    const gap = best.price! - cheapestEver.price;
+    if (gap <= 0) {
       parts.push('This matches the lowest price it has ever been.');
+    } else if (gap < 1) {
+      parts.push(`That is within $${gap.toFixed(2)} of its all-time low of $${cheapestEver.price.toFixed(2)}.`);
     } else {
-      const gap = best.price - cheapestEver.price;
       parts.push(
-        `Its all-time low was $${cheapestEver.price.toFixed(2)}, so today is $${gap.toFixed(2)} above the best it has been.`,
+        `Its all-time low was $${cheapestEver.price.toFixed(2)}, so today is $${gap.toFixed(2)} ` +
+          `above the best it has been — worth waiting if you are not in a hurry.`,
       );
     }
   }
