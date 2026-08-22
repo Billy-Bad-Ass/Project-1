@@ -1,0 +1,111 @@
+name: Refresh and deploy
+
+# Rebuilds the dataset from live APIs and redeploys. Runs on GitHub's free
+# tier for public repositories.
+on:
+  schedule:
+    # 04:15 UTC daily. Off the hour on purpose: scheduled jobs at :00 queue
+    # behind everyone else's and get delayed.
+    - cron: '15 4 * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max items to fetch'
+        default: '600'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two refreshes deploy at once.
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Persists the HTTP cache between runs so a re-run after a failure does
+      # not re-spend rate-limited requests.
+      - name: Restore API cache
+        uses: actions/cache@v5
+        with:
+          path: data/cache
+          key: api-cache-${{ github.run_id }}
+          restore-keys: api-cache-
+
+      - name: Build dataset from live APIs
+        run: npm run data:build -- --limit ${{ github.event.inputs.limit || '600' }}
+        env:
+          SITE_SOURCE: ${{ vars.SITE_SOURCE }}
+
+      - name: Dataset report
+        run: npm run data:stats
+
+      # A GitHub Pages project site is served from /<repo>/, so without a
+      # basePath every link and asset resolves against the domain root and
+      # 404s. Set the SITE_URL variable once you point a real domain at it and
+      # the prefix drops away automatically.
+      - name: Resolve site URL and base path
+        id: site
+        run: |
+          if [ -n "${{ vars.SITE_URL }}" ]; then
+            echo "url=${{ vars.SITE_URL }}" >> "$GITHUB_OUTPUT"
+            echo "base=${{ vars.BASE_PATH }}" >> "$GITHUB_OUTPUT"
+            echo "Custom domain: ${{ vars.SITE_URL }}${{ vars.BASE_PATH }}"
+          else
+            owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+            repo="${{ github.event.repository.name }}"
+            # owner.github.io is a user site served from the root; every other
+            # repo is a project site served from /<repo>/.
+            if [ "$repo" = "$owner.github.io" ]; then
+              echo "url=https://$owner.github.io" >> "$GITHUB_OUTPUT"
+              echo "base=" >> "$GITHUB_OUTPUT"
+            else
+              echo "url=https://$owner.github.io" >> "$GITHUB_OUTPUT"
+              echo "base=/$repo" >> "$GITHUB_OUTPUT"
+            fi
+            echo "No SITE_URL set; defaulting to the GitHub Pages URL."
+          fi
+
+      - name: Build static site
+        run: npm run build
+        env:
+          SITE_URL: ${{ steps.site.outputs.url }}
+          BASE_PATH: ${{ steps.site.outputs.base }}
+          AFFILIATES_ENABLED: ${{ vars.AFFILIATES_ENABLED }}
+          AFF_FANATICAL: ${{ secrets.AFF_FANATICAL }}
+          AFF_GMG: ${{ secrets.AFF_GMG }}
+          AFF_HUMBLE: ${{ secrets.AFF_HUMBLE }}
+
+      # Catches a broken deploy before it ships rather than after.
+      - name: Verify build integrity
+        run: npm run verify
+        env:
+          SITE_URL: ${{ steps.site.outputs.url }}
+          BASE_PATH: ${{ steps.site.outputs.base }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

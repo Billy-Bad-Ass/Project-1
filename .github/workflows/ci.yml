@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      # Builds against committed fixtures so CI never depends on a third-party
+      # API being up, and never spends free-tier quota.
+      - name: Build with offline fixtures
+        run: |
+          npm run data:build -- --offline --limit 400
+          npm run build
+        env:
+          SITE_URL: https://example.com
+
+      # Fails the build on broken internal links, indexable pages missing from
+      # the sitemap, or noindex pages leaking into it.
+      - name: Verify build integrity
+        run: npm run verify
+
+      # A sub-directory deploy breaks differently from a root one, and the
+      # difference is invisible locally, so build both ways.
+      - name: Build and verify as a sub-directory deploy
+        run: |
+          rm -rf out .next
+          npm run build
+          npm run verify
+        env:
+          SITE_URL: https://example.github.io
+          BASE_PATH: /test-repo
