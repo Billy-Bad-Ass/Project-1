@@ -16,7 +16,11 @@ import { bestOffer } from './dataset';
 
 export function canonical(path: string): string {
   const clean = path.startsWith('/') ? path : `/${path}`;
-  return `${site.url}${clean === '/' ? '/' : clean.endsWith('/') ? clean : `${clean}/`}`;
+  const withSlash = clean === '/' ? '/' : clean.endsWith('/') ? clean : `${clean}/`;
+  // Next rewrites <Link> hrefs for basePath but not strings we build ourselves,
+  // so canonicals and the sitemap have to add it explicitly or they will point
+  // at URLs that do not exist.
+  return `${site.url}${site.basePath}${withSlash}`;
 }
 
 export function itemPath(item: SourceItem): string {

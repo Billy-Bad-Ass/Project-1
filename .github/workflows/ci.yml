@@ -37,3 +37,14 @@ jobs:
       # the sitemap, or noindex pages leaking into it.
       - name: Verify build integrity
         run: npm run verify
+
+      # A sub-directory deploy breaks differently from a root one, and the
+      # difference is invisible locally, so build both ways.
+      - name: Build and verify as a sub-directory deploy
+        run: |
+          rm -rf out .next
+          npm run build
+          npm run verify
+        env:
+          SITE_URL: https://example.github.io
+          BASE_PATH: /test-repo

@@ -1,5 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
+import { site } from '@config/site.config';
 
 /**
  * Post-build integrity check.
@@ -9,6 +10,11 @@ import { join, relative, sep } from 'node:path';
  * missing from the sitemap, and pages with no way in.
  *
  *   npm run verify
+ *
+ * basePath aware: when the site is served from a sub-directory, hrefs in the
+ * HTML carry the prefix but files on disk do not, so the prefix is stripped
+ * before comparing. Getting this wrong would either flag every link as broken
+ * or, worse, silently pass a site whose links all 404.
  */
 
 const OUT = join(process.cwd(), 'out');
@@ -29,6 +35,15 @@ function routeOf(file: string): string {
   return `/${rel.replace(/index\.html$/, '')}`;
 }
 
+/** Strip the deployment sub-directory prefix from an in-page href. */
+function stripBasePath(href: string): string | null {
+  if (site.basePath === '') return href;
+  if (href === site.basePath) return '/';
+  if (href.startsWith(`${site.basePath}/`)) return href.slice(site.basePath.length);
+  // An internal link without the prefix will 404 on the deployed site.
+  return null;
+}
+
 async function main(): Promise<void> {
   try {
     await stat(OUT);
@@ -42,6 +57,7 @@ async function main(): Promise<void> {
   const assets = new Set(files.map((file) => `/${relative(OUT, file).split(sep).join('/')}`));
 
   const linkSources = new Map<string, string>();
+  const missingPrefix = new Map<string, string>();
   const linked = new Set<string>();
   let noindexCount = 0;
 
@@ -50,7 +66,13 @@ async function main(): Promise<void> {
     if (/<meta name="robots" content="noindex/.test(html)) noindexCount += 1;
 
     for (const match of html.matchAll(/href="(\/[^"#?]*)"/g)) {
-      const href = match[1]!;
+      const raw = match[1]!;
+      const href = stripBasePath(raw);
+      if (href === null) {
+        // Missing the prefix entirely — it would 404 once deployed.
+        missingPrefix.set(raw, routeOf(file));
+        continue;
+      }
       if (href.startsWith('/_next')) continue;
       linked.add(href);
       if (!linkSources.has(href)) linkSources.set(href, routeOf(file));
@@ -66,7 +88,8 @@ async function main(): Promise<void> {
     const xml = await readFile(file, 'utf8');
     for (const match of xml.matchAll(/<loc>([^<]+)<\/loc>/g)) {
       try {
-        sitemapUrls.add(new URL(match[1]!).pathname);
+        const path = new URL(match[1]!).pathname;
+        sitemapUrls.add(stripBasePath(path) ?? path);
       } catch {
         /* ignore malformed loc */
       }
@@ -87,6 +110,7 @@ async function main(): Promise<void> {
   );
 
   const lines: string[] = [];
+  lines.push(`Base path:              ${site.basePath === '' ? '(root domain)' : site.basePath}`);
   lines.push(`Pages built:            ${routes.size}`);
   lines.push(`  indexable:            ${indexableRoutes.length}`);
   lines.push(`  noindex:              ${noindexCount}`);
@@ -104,6 +128,16 @@ async function main(): Promise<void> {
     }
   } else {
     lines.push('OK    no broken internal links');
+  }
+
+  if (missingPrefix.size > 0) {
+    failed = true;
+    lines.push(`FAIL  ${missingPrefix.size} link(s) missing the "${site.basePath}" prefix:`);
+    for (const [href, source] of [...missingPrefix].slice(0, 20)) {
+      lines.push(`        ${href}   (in ${source})`);
+    }
+  } else if (site.basePath !== '') {
+    lines.push(`OK    every internal link carries the "${site.basePath}" prefix`);
   }
 
   if (missingFromSitemap.length > 0) {

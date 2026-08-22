@@ -28,6 +28,12 @@ export interface SiteConfig {
   tagline: string;
   /** Absolute origin, no trailing slash. Used for canonicals and sitemaps. */
   url: string;
+  /**
+   * Sub-directory the site is served from, e.g. `/my-repo` on GitHub Pages
+   * project sites. Empty for a root domain, which is what you want for a real
+   * site. Must start with `/` and not end with one.
+   */
+  basePath: string;
   description: string;
   locale: string;
   /** Which adapter in src/lib/sources drives the site. */
@@ -45,10 +51,22 @@ export interface SiteConfig {
   sitemapChunkSize: number;
 }
 
+/**
+ * A malformed basePath breaks every link and asset on the deployed site while
+ * building perfectly locally, so normalise rather than trust the environment.
+ */
+export function normaliseBasePath(raw: string | undefined): string {
+  const value = (raw ?? '').trim();
+  if (value === '' || value === '/') return '';
+  const withLeading = value.startsWith('/') ? value : `/${value}`;
+  return withLeading.replace(/\/+$/, '');
+}
+
 export const site: SiteConfig = {
   name: 'Deal Ledger',
   tagline: 'Live game prices across every major PC store',
-  url: process.env.SITE_URL ?? 'https://example.com',
+  url: (process.env.SITE_URL ?? 'https://example.com').replace(/\/+$/, ''),
+  basePath: normaliseBasePath(process.env.BASE_PATH),
   description:
     'Track current and historical prices for PC games across Steam, GOG, Humble, Fanatical and more. Updated daily from live store data.',
   locale: 'en-US',

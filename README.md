@@ -134,17 +134,37 @@ commission. The disclosure says so, which makes it a promise the code has to kee
 
 `npm run build` emits a fully static `./out`. Any static host works.
 
-`.github/workflows/refresh.yml` rebuilds from live APIs daily at 04:15 UTC and
-deploys to GitHub Pages on the free tier. Configure under repo settings:
+To go live on GitHub Pages, free:
 
-- **Variables:** `SITE_URL`, `SITE_SOURCE`, `AFFILIATES_ENABLED`
-- **Secrets:** `AFF_FANATICAL`, `AFF_GMG`, `AFF_HUMBLE`
+1. **Settings → Pages → Source: GitHub Actions.** That is the only click needed.
+2. **Actions → "Refresh and deploy" → Run workflow** (or wait for 04:15 UTC).
 
-Serving from a `github.io` subpath needs `basePath` in `next.config.mjs`. For a
-commercial site, use a real domain instead — see the playbook.
+With nothing else configured it deploys to
+`https://<owner>.github.io/<repo>/` and works correctly there — the workflow
+detects the project-site sub-directory and sets `BASE_PATH` for you.
+
+When you point a real domain at it, set the `SITE_URL` repo variable and the
+sub-directory prefix drops away automatically.
+
+| Repo setting | Purpose |
+|---|---|
+| Variable `SITE_URL` | Your domain, once you have one. Leave unset to use the Pages URL |
+| Variable `BASE_PATH` | Only with a custom domain served from a sub-directory. Usually empty |
+| Variable `SITE_SOURCE` | Which adapter to build (`cheapshark`, `openlibrary`, …) |
+| Variable `AFFILIATES_ENABLED` | `true` only once you have been accepted somewhere |
+| Secrets `AFF_*` | Your affiliate IDs |
+
+> **Sub-directory hosting is the thing that silently breaks static deploys.**
+> Served from `/<repo>/`, root-absolute links and assets all 404 while the
+> local build looks perfect. `BASE_PATH` handles it, `npm run verify` fails the
+> build if any link is missing the prefix, and CI builds **both** ways.
 
 `.github/workflows/ci.yml` typechecks, tests, and builds against **offline
-fixtures**, so CI never depends on a third-party API or spends free quota.
+fixtures** — at a root domain and as a sub-directory deploy — so CI never
+depends on a third-party API or spends free quota.
+
+`.github/workflows/live-data.yml` runs the real fetch against the upstream APIs
+on demand and uploads the resulting dataset as an artifact.
 
 ## Optional: Firecrawl enrichment
 

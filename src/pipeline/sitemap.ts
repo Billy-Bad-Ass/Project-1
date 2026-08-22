@@ -40,7 +40,7 @@ function escapeXml(value: string): string {
 
 function absolute(path: string): string {
   const clean = path.startsWith('/') ? path : `/${path}`;
-  return `${site.url}${clean.endsWith('/') ? clean : `${clean}/`}`;
+  return `${site.url}${site.basePath}${clean.endsWith('/') ? clean : `${clean}/`}`;
 }
 
 function renderUrlset(entries: UrlEntry[]): string {
@@ -117,7 +117,7 @@ async function main(): Promise<void> {
   for (const [index, entries] of chunks.entries()) {
     const name = `sitemap-${index + 1}.xml`;
     await writeFile(join(OUT, name), renderUrlset(entries), 'utf8');
-    files.push({ loc: `${site.url}/${name}`, lastmod });
+    files.push({ loc: `${site.url}${site.basePath}/${name}`, lastmod });
   }
 
   await writeFile(join(OUT, 'sitemap.xml'), renderIndex(files), 'utf8');

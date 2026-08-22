@@ -12,7 +12,7 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     // Points at the index written by src/pipeline/sitemap.ts after the build.
-    sitemap: `${site.url}/sitemap.xml`,
+    sitemap: `${site.url}${site.basePath}/sitemap.xml`,
     host: site.url,
   };
 }
