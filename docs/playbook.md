@@ -71,8 +71,10 @@ this site is allowed to exist, and every content decision should protect it.
 
 ## Realistic sequence
 
-1. **Buy a real domain.** ~$10/year, and the one cost that is not optional. A
-   `github.io` subdomain will not carry a commercial site.
+1. **Decide about a domain.** ~$10/year. Not strictly required — see
+   [Running without a domain](#running-without-a-domain) — but it is the single
+   cheapest lever on this whole plan, and it is what most affiliate programmes
+   look for.
 2. **Ship small.** 300-800 genuinely useful pages beats 50,000 thin ones. The
    `--limit` flag exists for this.
 3. **Verify in Google Search Console and Bing Webmaster Tools.** Free. Submit
@@ -99,6 +101,45 @@ For a price-comparison vertical, in rough order of value:
 - **Deal aggregators and forums** — a genuinely good price-history page gets
   linked. This is the main way a new site earns its first authority.
 
+## Running without a domain
+
+You can. It changes the ceiling rather than blocking the project, and it is
+worth being precise about which parts it actually affects.
+
+**Indexing and ranking are fine.** `github.io` is on the Public Suffix List, so
+`yourname.github.io` is treated by search engines as its own site rather than
+as a slice of GitHub's. It gets crawled and indexed like anything else. It has
+no accumulated authority, but neither does a domain you bought this morning.
+
+**Affiliate approval is the real constraint.** This is the part that bites.
+Many affiliate networks want a site on a domain you control, and free-host URLs
+are commonly rejected or given extra scrutiny. Amazon Associates in particular
+reviews sites and closes accounts that make no qualifying sales in their trial
+window. Assume that some programmes you would want will say no, and check each
+one's terms *before* building traffic on the assumption they will say yes.
+
+**A subdirectory URL is the weakest free option.** `user.github.io/repo/` puts
+your site in a folder of a shared origin. Two free hosts give you a root-level
+subdomain instead, which is both tidier and removes the `BASE_PATH` handling
+entirely:
+
+| Host | Free URL | Notes |
+|---|---|---|
+| Cloudflare Pages | `your-project.pages.dev` | Connect the repo, build command `npm run build`, output `out` |
+| Netlify | `your-project.netlify.app` | Same shape; check current free-tier bandwidth limits |
+| GitHub Pages | `user.github.io/repo/` | Already wired up here, but a subdirectory |
+
+Set `SITE_URL` to the new origin and leave `BASE_PATH` empty; everything else
+is unchanged.
+
+**A realistic read.** Without a domain, treat this as a project that proves the
+pipeline and might earn something modest, rather than one likely to become a
+real income stream. If it ever does get traction, buying a domain then and
+redirecting is cheap — but you will have spent the intervening months building
+authority on a URL you do not own and cannot move, which is the actual cost of
+deferring. That is a fair trade for not spending money on an unproven idea; it
+is not a free one.
+
 ## Costs at $0
 
 | Item | Cost | Notes |
@@ -107,7 +148,7 @@ For a price-comparison vertical, in rough order of value:
 | Data | $0 | CheapShark and Open Library need no key |
 | Rebuilds | $0 | GitHub Actions free tier for public repos |
 | Search Console / Bing | $0 | |
-| **Domain** | **~$10/yr** | The only real cost |
+| **Domain** | **~$10/yr** | Optional, but the main thing standing between this and affiliate approval |
 | Firecrawl enrichment | $0 then paid | Free tier is a one-off credit grant; the script caps spend |
 
 ## What to do if it is not working after 6 months

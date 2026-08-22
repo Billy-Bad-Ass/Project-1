@@ -146,6 +146,14 @@ detects the project-site sub-directory and sets `BASE_PATH` for you.
 When you point a real domain at it, set the `SITE_URL` repo variable and the
 sub-directory prefix drops away automatically.
 
+**Staying free?** A root-level subdomain beats a subdirectory. Cloudflare Pages
+(`your-project.pages.dev`) or Netlify (`your-project.netlify.app`) both host
+this for nothing: connect the repo, build command `npm run build`, output
+directory `out`. Set `SITE_URL` to that origin and leave `BASE_PATH` empty. See
+[Running without a domain](docs/playbook.md#running-without-a-domain) for what
+a free URL does and does not cost you — the honest answer is that indexing is
+fine and affiliate approval is the constraint.
+
 | Repo setting | Purpose |
 |---|---|
 | Variable `SITE_URL` | Your domain, once you have one. Leave unset to use the Pages URL |
