@@ -29,7 +29,7 @@ function parseArgs(argv: string[]) {
   if (!what || !where) {
     throw new Error(
       'Need both --what and --where.\n\n' +
-        '  npm run find -- --what dentist --where Bristol\n\n' +
+        '  npm run find -- --what dentist --where Bristol --country GB\n\n' +
         'Run `npm run find -- --list` for the business types.',
     );
   }
@@ -40,7 +40,7 @@ function parseArgs(argv: string[]) {
     throw new Error('--limit must be a whole number from 1 to 300');
   }
 
-  return { listOnly: false as const, what, where, limit };
+  return { listOnly: false as const, what, where, limit, country: get('--country') };
 }
 
 function toCsv(prospects: Prospect[]): string {
@@ -61,7 +61,8 @@ async function main(): Promise<void> {
   if (args.listOnly) {
     log('Business types you can search for:\n');
     log(categoryList());
-    log('\n  npm run find -- --what dentist --where Bristol');
+    log('\n  npm run find -- --what dentist --where Bristol --country GB');
+    log('\n  --country matters: place names repeat. "Bristol" alone can match Tennessee.');
     return;
   }
 
@@ -75,6 +76,7 @@ async function main(): Promise<void> {
   const prospects = await discoverProspects({
     category: args.what,
     area: args.where,
+    country: args.country ?? undefined,
     limit: args.limit,
     log,
   });

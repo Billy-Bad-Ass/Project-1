@@ -34,7 +34,20 @@ jobs:
       - run: npm ci
 
       - name: Find real businesses
-        run: npm run find -- --what dentist --where Bristol --limit 25
+        run: npm run find -- --what dentist --where Bristol --country GB --limit 25
+
+      - name: Assert we found a real city's worth of businesses
+        run: |
+          set -e
+          count=$(grep -vc '^#' out/prospects.txt || true)
+          echo "found=$count"
+          # Bristol UK has many dentists. A single result means the area
+          # resolved to somewhere small or on the wrong continent, which is
+          # exactly the bug this assertion exists to catch.
+          if [ "$count" -lt 5 ]; then
+            echo "Only $count prospects — the area probably resolved wrongly"
+            exit 1
+          fi
 
       - name: Audit what was found
         run: npm run audit -- --list out/prospects.txt --concurrency 2
