@@ -142,6 +142,38 @@ test('quotes in an area name cannot break out of the area query', () => {
   assert.doesNotMatch(query, /name"="King"s/);
 });
 
+test('an administrative prefix does not hide a place', () => {
+  // The live failure: Bristol UK is "City of Bristol" in OpenStreetMap, so an
+  // exact match returned fourteen American Bristols and none from Britain.
+  const query = buildAreaQuery('Bristol');
+  assert.match(query, /City of /);
+  assert.match(query, /\^\(/, 'pattern should be anchored at the start');
+  assert.match(query, /Bristol\$/, 'pattern should be anchored at the end');
+});
+
+test('anchoring stops a name matching a longer one', () => {
+  // "Bristol" must not match "Bristol Township" or "New Bristol".
+  const query = buildAreaQuery('Bristol');
+  const pattern = query.match(/"name"~"([^"]+)"/)?.[1];
+  assert.ok(pattern);
+  const re = new RegExp(pattern, 'i');
+  assert.ok(re.test('Bristol'));
+  assert.ok(re.test('City of Bristol'));
+  assert.ok(re.test('County of Bristol'));
+  assert.ok(!re.test('Bristol Township'));
+  assert.ok(!re.test('New Bristol'));
+});
+
+test('regex characters in a place name cannot alter the pattern', () => {
+  const query = buildAreaQuery('St. Ives');
+  const pattern = query.match(/"name"~"([^"]+)"/)?.[1];
+  assert.ok(pattern);
+  const re = new RegExp(pattern, 'i');
+  assert.ok(re.test('St. Ives'));
+  // The dot must be literal, not "any character".
+  assert.ok(!re.test('StXIves'));
+});
+
 test('the area query asks relations for their centre point', () => {
   // Areas are derived objects with no coordinates; relations have them.
   const query = buildAreaQuery('Bristol');

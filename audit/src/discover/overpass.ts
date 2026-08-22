@@ -66,13 +66,36 @@ export interface AreaMatch {
  * wrong continent. Resolving the area explicitly, and saying out loud which
  * one was chosen, is the only way to make that visible.
  */
+/** Regex-escape a place name so a stray character cannot alter the pattern. */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Common administrative prefixes.
+ *
+ * Bristol UK is "City of Bristol" in OpenStreetMap, so an exact name match
+ * found only the American Bristols — the live run returned fourteen of them
+ * and not one from Britain. Councils, boroughs and counties all do this.
+ */
+const ADMIN_PREFIXES = [
+  'City of', 'City and County of', 'Borough of', 'London Borough of',
+  'Royal Borough of', 'Metropolitan Borough of', 'County Borough of',
+  'County of', 'District of', 'Town of', 'Municipality of', 'Village of',
+];
+
 export function buildAreaQuery(area: string): string {
-  const safeArea = area.replace(/["\\]/g, '');
+  const name = escapeRegex(area.trim()).replace(/["\\]/g, '');
+  const prefixes = ADMIN_PREFIXES.map((p) => `${p} `).join('|');
+  // Anchored on both ends so "Bristol" cannot match "Bristol Township" or
+  // "New Bristol" — a loose match would quietly search the wrong place, which
+  // is the failure mode this whole area-resolution step exists to prevent.
+  const pattern = `^(${prefixes})?${name}$`;
+
   // Relations, not areas: an area is a derived object with no coordinates, and
   // coordinates are the only reliable way to tell fifteen Bristols apart.
-  // `out center` gives a point inside each boundary alongside its tags.
   return `[out:json][timeout:30];
-rel["name"="${safeArea}"]["boundary"="administrative"];
+rel["name"~"${pattern}",i]["boundary"="administrative"];
 out center tags;`;
 }
 
