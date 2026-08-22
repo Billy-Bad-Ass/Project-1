@@ -1,0 +1,60 @@
+name: Live data check
+
+# Runs a real fetch against the upstream APIs and reports what came back.
+# Separate from CI on purpose: CI must stay offline and deterministic, while
+# this deliberately touches third-party services, so it is run on demand.
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Items to fetch per source'
+        default: '150'
+  push:
+    branches: ['claude/online-money-making-t5b3m4']
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    strategy:
+      # Keep going if one API is down: a CheapShark outage should not hide the
+      # Open Library result.
+      fail-fast: false
+      matrix:
+        source: [cheapshark, openlibrary]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fetch live data (${{ matrix.source }})
+        run: npm run data:build -- --limit ${{ github.event.inputs.limit || '150' }}
+        env:
+          SITE_SOURCE: ${{ matrix.source }}
+
+      - name: Dataset report
+        run: npm run data:stats
+
+      - name: Sample real items
+        run: npm run data:sample -- 4
+
+      - name: Build the site from live data
+        run: npm run build
+        env:
+          SITE_URL: https://example.com
+          SITE_SOURCE: ${{ matrix.source }}
+
+      - name: Verify build integrity
+        run: npm run verify
+
+      - name: Upload dataset
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataset-${{ matrix.source }}
+          path: data/datasets/dataset.json
+          retention-days: 14
