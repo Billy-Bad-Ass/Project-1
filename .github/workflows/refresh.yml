@@ -88,6 +88,10 @@ jobs:
           AFF_FANATICAL: ${{ secrets.AFF_FANATICAL }}
           AFF_GMG: ${{ secrets.AFF_GMG }}
           AFF_HUMBLE: ${{ secrets.AFF_HUMBLE }}
+          # Not secrets — they are public in the page source — so repo
+          # variables rather than secrets, which keeps them readable in logs.
+          GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
+          BING_SITE_VERIFICATION: ${{ vars.BING_SITE_VERIFICATION }}
 
       # Catches a broken deploy before it ships rather than after.
       - name: Verify build integrity

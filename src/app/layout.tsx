@@ -14,6 +14,14 @@ export const metadata: Metadata = {
   },
   description: site.description,
   alternates: { canonical: canonical('/') },
+  // Ownership verification for Search Console and Bing Webmaster Tools. Next
+  // omits the tag entirely when the token is undefined, so an unconfigured
+  // site emits nothing rather than an empty meta tag.
+  verification: {
+    ...(site.verification.google ? { google: site.verification.google } : {}),
+    ...(site.verification.yandex ? { yandex: site.verification.yandex } : {}),
+    ...(site.verification.bing ? { other: { 'msvalidate.01': site.verification.bing } } : {}),
+  },
   openGraph: {
     siteName: site.name,
     locale: site.locale.replace('-', '_'),
