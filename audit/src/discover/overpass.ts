@@ -27,6 +27,11 @@ export interface DiscoverOptions {
   category: string;
   /** Place name as OSM knows it: "Leeds", "Bristol", "Camden". */
   area: string;
+  /**
+   * ISO country code to disambiguate. Place names repeat across countries —
+   * "Bristol" alone matched Tennessee on a live run.
+   */
+  country?: string;
   limit?: number;
   endpoint?: string;
   timeoutMs?: number;
@@ -36,16 +41,102 @@ export interface DiscoverOptions {
 
 const DEFAULT_ENDPOINT = 'https://overpass-api.de/api/interpreter';
 
+export interface AreaMatch {
+  id: number;
+  name: string;
+  adminLevel: string | null;
+  /** ISO country code where the area itself carries one. */
+  country: string | null;
+  /** Sub-country code such as GB-BST, where present. */
+  region: string | null;
+  /** Human description for the log, e.g. "Bristol (GB, admin level 6)". */
+  describe: string;
+}
+
 /**
- * Build the Overpass QL query.
+ * Query to list every administrative area with a given name.
+ *
+ * Place names are not unique. A live run for "Bristol" returned a dentist in
+ * Bristol, Tennessee — the query had matched whichever Bristol Overpass
+ * happened to return first, and a whole outreach batch would have gone to the
+ * wrong continent. Resolving the area explicitly, and saying out loud which
+ * one was chosen, is the only way to make that visible.
+ */
+export function buildAreaQuery(area: string): string {
+  const safeArea = area.replace(/["\\]/g, '');
+  return `[out:json][timeout:30];
+area["name"="${safeArea}"]["boundary"="administrative"];
+out tags;`;
+}
+
+export function parseAreas(raw: unknown): AreaMatch[] {
+  if (typeof raw !== 'object' || raw === null) return [];
+  const elements = (raw as { elements?: unknown }).elements;
+  if (!Array.isArray(elements)) return [];
+
+  const areas: AreaMatch[] = [];
+  for (const entry of elements) {
+    const element = entry as { id?: number; tags?: Record<string, unknown> };
+    if (typeof element.id !== 'number' || !element.tags) continue;
+    const tags = element.tags;
+
+    const name = firstString(tags, 'name') ?? '(unnamed)';
+    const adminLevel = firstString(tags, 'admin_level');
+    const country =
+      firstString(tags, 'ISO3166-1', 'ISO3166-1:alpha2') ??
+      firstString(tags, 'is_in:country_code') ??
+      null;
+    const region = firstString(tags, 'ISO3166-2');
+    const inferredCountry = country ?? (region ? (region.split('-')[0] ?? null) : null);
+
+    areas.push({
+      id: element.id,
+      name,
+      adminLevel,
+      country: inferredCountry,
+      region: region ?? null,
+      describe: `${name}${inferredCountry ? ` (${inferredCountry}` : ' ('}${
+        adminLevel ? `${inferredCountry ? ', ' : ''}admin level ${adminLevel}` : ''
+      })`,
+    });
+  }
+
+  return areas;
+}
+
+/**
+ * Choose which of several same-named areas to search.
+ *
+ * Prefers an explicit country, then the largest administrative unit — a city
+ * boundary yields far more businesses than a parish inside it.
+ */
+export function chooseArea(areas: AreaMatch[], country?: string): AreaMatch | null {
+  if (areas.length === 0) return null;
+
+  const wanted = country?.trim().toUpperCase();
+  const pool = wanted
+    ? areas.filter((a) => a.country?.toUpperCase() === wanted || a.region?.toUpperCase().startsWith(`${wanted}-`))
+    : areas;
+
+  if (pool.length === 0) return null;
+
+  return [...pool].sort((a, b) => {
+    // Lower admin_level is a larger area. Unknown levels sort last.
+    const levelA = a.adminLevel ? Number(a.adminLevel) : 99;
+    const levelB = b.adminLevel ? Number(b.adminLevel) : 99;
+    return levelA - levelB;
+  })[0]!;
+}
+
+/**
+ * Build the business query against an already-resolved area id.
  *
  * `["website"]` is doing real work here: it filters server-side to businesses
  * that actually have one, so we neither download nor sift through the majority
  * that do not. Searching nodes, ways and relations because a business may be
  * mapped as a point or as a building outline.
  */
-export function buildQuery(category: Category, area: string, limit: number): string {
-  const safeArea = area.replace(/["\\]/g, '');
+export function buildQuery(category: Category, areaId: number, limit: number): string {
   const filters = category.tags
     .map((tag) => {
       const [key, value] = tag.split('=');
@@ -56,7 +147,7 @@ export function buildQuery(category: Category, area: string, limit: number): str
     .join('\n');
 
   return `[out:json][timeout:60];
-area["name"="${safeArea}"]["boundary"="administrative"]->.searchArea;
+area(${areaId})->.searchArea;
 (
 ${filters}
 );
@@ -163,37 +254,67 @@ export async function discoverProspects(options: DiscoverOptions): Promise<Prosp
   const limit = Math.min(options.limit ?? 60, 300);
   const log = options.log ?? (() => {});
   const doFetch = options.fetchImpl ?? fetch;
-  const query = buildQuery(category, options.area, limit);
+  const endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
 
-  log(`Looking for ${category.label.toLowerCase()} in ${options.area}...`);
+  const post = async (query: string): Promise<unknown> => {
+    const response = await doFetch(endpoint, {
+      method: 'POST',
+      body: new URLSearchParams({ data: query }),
+      signal: AbortSignal.timeout(options.timeoutMs ?? 90_000),
+      headers: {
+        'user-agent': 'SiteAuditBot/0.1 (business discovery; two queries per run)',
+        accept: 'application/json',
+      },
+    });
 
-  const response = await doFetch(options.endpoint ?? DEFAULT_ENDPOINT, {
-    method: 'POST',
-    body: new URLSearchParams({ data: query }),
-    signal: AbortSignal.timeout(options.timeoutMs ?? 90_000),
-    headers: {
-      'user-agent': 'SiteAuditBot/0.1 (business discovery; one query per run)',
-      accept: 'application/json',
-    },
-  });
+    if (response.status === 429 || response.status === 504) {
+      throw new Error(
+        `Overpass is rate limiting or busy (HTTP ${response.status}). It is free, volunteer-run ` +
+          `infrastructure — wait a minute and try again rather than retrying in a loop.`,
+      );
+    }
+    if (!response.ok) throw new Error(`Overpass returned HTTP ${response.status}`);
+    return response.json();
+  };
 
-  if (response.status === 429 || response.status === 504) {
+  // Resolve the place first. Skipping this once sent a batch of UK outreach to
+  // a dentist in Bristol, Tennessee.
+  log(`Resolving "${options.area}"...`);
+  const areas = parseAreas(await post(buildAreaQuery(options.area)));
+
+  if (areas.length === 0) {
     throw new Error(
-      `Overpass is rate limiting or busy (HTTP ${response.status}). It is free, volunteer-run ` +
-        `infrastructure — wait a minute and try again rather than retrying in a loop.`,
+      `OpenStreetMap has no administrative area called "${options.area}".\n` +
+        `Try the town, city or council name as it appears on a map.`,
     );
   }
-  if (!response.ok) {
-    throw new Error(`Overpass returned HTTP ${response.status}`);
+
+  const chosen = chooseArea(areas, options.country);
+  if (!chosen) {
+    const seen = areas.map((a) => `  ${a.describe}`).join('\n');
+    throw new Error(
+      `Found "${options.area}", but none of them in country "${options.country}".\n` +
+        `Areas with that name:\n${seen}`,
+    );
   }
 
-  const prospects = parseElements(await response.json());
+  if (areas.length > 1) {
+    log(`  ${areas.length} places share that name. Using ${chosen.describe}.`);
+    if (!options.country) {
+      log('  Not the one you meant? Pass --country GB (or US, IE, ...) to pin it down.');
+    }
+  } else {
+    log(`  ${chosen.describe}`);
+  }
+
+  log(`Looking for ${category.label.toLowerCase()} there...`);
+  const prospects = parseElements(await post(buildQuery(category, chosen.id, limit)));
   log(`  ${prospects.length} with a website worth auditing`);
 
   if (prospects.length === 0) {
     log('');
-    log(`  Nothing found. Either "${options.area}" is not how OpenStreetMap names that area,`);
-    log('  or that trade is thinly mapped there. Try the wider council or city name.');
+    log(`  Nothing found. That trade may be thinly mapped in ${chosen.name},`);
+    log('  or the area is smaller than you expect. Try the wider council or city name.');
   }
 
   return prospects;
