@@ -16,6 +16,11 @@ const CACHE_DIR = join(process.cwd(), 'data', 'cache');
 export interface HttpOptions {
   /** Minimum milliseconds between two outbound requests. */
   minIntervalMs?: number;
+  /**
+   * Per-request timeout. Node's fetch has none, so without this a single
+   * unresponsive connection stalls the whole pipeline indefinitely.
+   */
+  timeoutMs?: number;
   /** How long a cached response stays fresh. */
   ttlMs?: number;
   /** Retry attempts for transient failures (429/5xx/network). */
@@ -36,6 +41,7 @@ const DEFAULTS = {
   minIntervalMs: 300,
   ttlMs: 12 * 60 * 60 * 1000, // 12h: store prices move daily, not hourly.
   retries: 3,
+  timeoutMs: 20_000,
 };
 
 function cachePath(url: string): string {
@@ -50,13 +56,14 @@ export class HttpClient {
   private opts: Required<Omit<HttpOptions, 'log'>> & { log: (m: string) => void };
 
   /** Counters surfaced in the build report so quota use stays visible. */
-  public stats = { hits: 0, misses: 0, retries: 0, errors: 0 };
+  public stats = { hits: 0, misses: 0, retries: 0, errors: 0, timeouts: 0 };
 
   constructor(options: HttpOptions = {}) {
     this.opts = {
       minIntervalMs: options.minIntervalMs ?? DEFAULTS.minIntervalMs,
       ttlMs: options.ttlMs ?? DEFAULTS.ttlMs,
       retries: options.retries ?? DEFAULTS.retries,
+      timeoutMs: options.timeoutMs ?? DEFAULTS.timeoutMs,
       noCache: options.noCache ?? false,
       log: options.log ?? (() => {}),
     };
@@ -113,6 +120,9 @@ export class HttpClient {
       try {
         const response = await fetch(url, {
           ...init,
+          // Without this a hung connection blocks the run forever; a timed-out
+          // request is retried like any other transient failure.
+          signal: AbortSignal.timeout(this.opts.timeoutMs),
           headers: {
             accept: 'application/json',
             'user-agent': 'pseo-forge/0.1 (+https://github.com/)',
@@ -136,6 +146,10 @@ export class HttpClient {
         if (error instanceof PermanentHttpError) {
           this.stats.errors += 1;
           throw error;
+        }
+        if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+          this.stats.timeouts += 1;
+          this.opts.log(`  timeout after ${this.opts.timeoutMs}ms — ${url}`);
         }
         lastError = error;
       }

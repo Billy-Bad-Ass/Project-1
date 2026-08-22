@@ -60,8 +60,11 @@ const GAME_DETAIL = {
   cheapestPriceEver: { price: '2.99', date: 1600000000 },
 };
 
+/** The batch form returns a map keyed by game id. */
+const GAME_BATCH = { '612': GAME_DETAIL };
+
 test('cheapshark normalises deals, drops inactive stores and sorts by price', async () => {
-  const ctx = makeCtx({ '/stores': STORES, '/deals': DEALS, '/games?id=': GAME_DETAIL });
+  const ctx = makeCtx({ '/stores': STORES, '/deals': DEALS, '/games?ids=': GAME_BATCH });
   const items = await cheapsharkSource.fetchAll(ctx);
 
   assert.equal(items.length, 1);
@@ -78,7 +81,7 @@ test('cheapshark normalises deals, drops inactive stores and sorts by price', as
 });
 
 test('cheapshark treats a zero metacritic score as absent, not as a real zero', async () => {
-  const ctx = makeCtx({ '/stores': STORES, '/deals': DEALS, '/games?id=': GAME_DETAIL });
+  const ctx = makeCtx({ '/stores': STORES, '/deals': DEALS, '/games?ids=': GAME_BATCH });
   const [item] = await cheapsharkSource.fetchAll(ctx);
   assert.equal(
     item!.facts.find((fact) => fact.label === 'Metacritic'),
@@ -88,10 +91,58 @@ test('cheapshark treats a zero metacritic score as absent, not as a real zero', 
 });
 
 test('cheapshark computes discount from list and sale price', async () => {
-  const ctx = makeCtx({ '/stores': STORES, '/deals': DEALS, '/games?id=': GAME_DETAIL });
+  const ctx = makeCtx({ '/stores': STORES, '/deals': DEALS, '/games?ids=': GAME_BATCH });
   const [item] = await cheapsharkSource.fetchAll(ctx);
   // 3.49 off a 19.99 list is an 83% saving.
   assert.equal(item!.offers[0]!.discountPercent, 83);
+});
+
+test('cheapshark batches detail requests instead of one call per game', async () => {
+  const urls: string[] = [];
+  const many = Array.from({ length: 30 }, (_, i) => ({ ...DEALS[0]!, gameID: `g${i}`, title: `Game ${i}` }));
+  const batch: Record<string, unknown> = {};
+  for (let i = 0; i < 30; i += 1) batch[`g${i}`] = GAME_DETAIL;
+
+  const ctx: FetchContext = {
+    limit: 30,
+    log: () => {},
+    get: async (url: string) => {
+      urls.push(url);
+      if (url.includes('/stores')) return STORES;
+      if (url.includes('/deals')) return many;
+      if (url.includes('/games?ids=')) return batch;
+      throw new Error(`unexpected ${url}`);
+    },
+  };
+
+  const items = await cheapsharkSource.fetchAll(ctx);
+  assert.equal(items.length, 30);
+
+  // 30 games at a batch size of 25 is two detail calls, not thirty.
+  const detailCalls = urls.filter((url) => url.includes('/games?')).length;
+  assert.equal(detailCalls, 2);
+});
+
+test('cheapshark falls back to single-id requests when a batch is unusable', async () => {
+  const urls: string[] = [];
+  const ctx: FetchContext = {
+    limit: 10,
+    log: () => {},
+    get: async (url: string) => {
+      urls.push(url);
+      if (url.includes('/stores')) return STORES;
+      if (url.includes('/deals')) return DEALS;
+      // Batch form returns something unexpected; single form still works.
+      if (url.includes('/games?ids=')) return 'not-an-object';
+      if (url.includes('/games?id=')) return GAME_DETAIL;
+      throw new Error(`unexpected ${url}`);
+    },
+  };
+
+  const items = await cheapsharkSource.fetchAll(ctx);
+  assert.equal(items.length, 1);
+  assert.equal(items[0]!.offers.length, 2); // recovered via the fallback
+  assert.ok(urls.some((url) => url.includes('/games?id=612')));
 });
 
 test('cheapshark survives a failing game-detail request without losing the item', async () => {
@@ -179,4 +230,76 @@ test('openlibrary builds facts only from fields that are present', async () => {
   const [item] = await openLibrarySource.fetchAll(ctx);
   assert.equal(item!.facts.length, 0);
   assert.equal(item!.offers.length, 0); // no ISBN, so nothing to link to
+});
+
+/* ------- regressions found by running against the live API ------- */
+
+/** A bundle SKU: present in /deals with a real price, absent from /games. */
+const BUNDLE_DEAL = [
+  {
+    gameID: '999',
+    title: 'Watch_Dogs 2 Gold Edition',
+    storeID: '1',
+    dealID: 'bundle-deal-id',
+    salePrice: '12.49',
+    normalPrice: '69.99',
+    metacriticScore: '82',
+    steamRatingPercent: '88',
+    steamRatingText: 'Very Positive',
+    releaseDate: 1480000000,
+  },
+];
+
+test('a bundle absent from /games still gets the offer /deals already gave us', async () => {
+  // The live failure this covers: 64 of 129 pages came back with zero offers
+  // because /games returns no listings for edition and anthology SKUs, even
+  // though /deals had just handed us a valid price and dealID for each.
+  const ctx = makeCtx({
+    '/stores': STORES,
+    '/deals': BUNDLE_DEAL,
+    // /games answers, but with no deals for this id.
+    '/games?ids=': { '999': { info: {}, deals: [], cheapestPriceEver: null } },
+  });
+
+  const items = await cheapsharkSource.fetchAll(ctx);
+  assert.equal(items.length, 1);
+
+  const item = items[0]!;
+  assert.equal(item.offers.length, 1);
+  assert.equal(item.offers[0]!.merchant, 'Steam');
+  assert.equal(item.offers[0]!.price, 12.49);
+  assert.equal(item.offers[0]!.discountPercent, 82);
+
+  // Which means it is indexable rather than suppressed as an empty page.
+  assert.ok(item.facts.some((fact) => fact.label === 'Best current price'));
+  assert.ok(item.summary.includes('12.49'));
+});
+
+test('the seeded offer is not double-counted when /games returns the same deal', async () => {
+  // "compared across N stores" must not inflate because one deal arrived twice.
+  const ctx = makeCtx({
+    '/stores': STORES,
+    '/deals': [{ ...DEALS[0]!, storeID: '1', dealID: 'abc' }],
+    '/games?ids=': { '612': GAME_DETAIL },
+  });
+
+  const items = await cheapsharkSource.fetchAll(ctx);
+  const item = items[0]!;
+
+  // GAME_DETAIL has deals abc + def (+ one delisted). The seed reuses abc.
+  assert.equal(item.offers.length, 2);
+  const urls = new Set(item.offers.map((offer) => offer.url));
+  assert.equal(urls.size, item.offers.length, 'duplicate deal urls present');
+  assert.equal(item.facts.find((f) => f.label === 'Stores compared')?.value, 2);
+});
+
+test('a delisted store is not resurrected through the seeded offer', async () => {
+  const ctx = makeCtx({
+    '/stores': STORES,
+    '/deals': [{ ...BUNDLE_DEAL[0]!, storeID: '99' }], // store 99 is inactive
+    '/games?ids=': { '999': { deals: [], cheapestPriceEver: null } },
+  });
+
+  const items = await cheapsharkSource.fetchAll(ctx);
+  assert.equal(items[0]!.offers.length, 0);
 });

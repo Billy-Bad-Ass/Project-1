@@ -19,6 +19,9 @@ type StoreMap = Map<string, { name: string; active: boolean }>;
 interface DealRow {
   gameID: string;
   title: string;
+  /** The store and deal this row came from — a usable offer in its own right. */
+  storeID: string | null;
+  dealID: string | null;
   salePrice: number | null;
   normalPrice: number | null;
   thumb: string | null;
@@ -39,6 +42,8 @@ function parseDealRow(raw: unknown): DealRow | null {
   return {
     gameID,
     title,
+    storeID: toStringOrNull(raw.storeID),
+    dealID: toStringOrNull(raw.dealID),
     salePrice: toNumber(raw.salePrice),
     normalPrice: toNumber(raw.normalPrice),
     thumb: toStringOrNull(raw.thumb),
@@ -91,17 +96,56 @@ async function fetchDealPages(ctx: FetchContext, limit: number): Promise<Map<str
   return byGame;
 }
 
+interface GameDetail {
+  offers: Offer[];
+  cheapestEver: { price: number; date: string } | null;
+}
+
 /**
- * /games?id= returns every store's current price for one game plus its
- * all-time low. That all-time low is the fact this vertical is really built
- * around — it is the thing a shopper cannot get from any single store page.
+ * The offer implied by the /deals row itself.
+ *
+ * A live run showed why this matters: bundle and edition SKUs
+ * ("Civilization VI Anthology", "Watch_Dogs 2 Gold Edition") appear in /deals
+ * with a real price and dealID, but /games returns no store listings for them.
+ * Relying on /games alone left half the catalogue with zero offers and got
+ * those pages de-indexed or suppressed — while a perfectly good offer was
+ * sitting unused in the response that found them.
  */
-async function fetchGameDetail(
-  ctx: FetchContext,
-  gameID: string,
-  stores: StoreMap,
-): Promise<{ offers: Offer[]; cheapestEver: { price: number; date: string } | null } | null> {
-  const raw = await ctx.get(`${API}/games?id=${encodeURIComponent(gameID)}`);
+function offerFromDealRow(row: DealRow, stores: StoreMap): Offer | null {
+  if (!row.dealID || row.salePrice === null) return null;
+
+  const store = row.storeID ? stores.get(row.storeID) : undefined;
+  if (store && !store.active) return null;
+
+  return {
+    merchant: store?.name ?? (row.storeID ? `Store ${row.storeID}` : 'Unknown store'),
+    url: `https://www.cheapshark.com/redirect?dealID=${encodeURIComponent(row.dealID)}`,
+    price: row.salePrice,
+    listPrice: row.normalPrice,
+    currency: 'USD',
+    discountPercent: discountPercent(row.normalPrice, row.salePrice),
+    availability: 'in_stock',
+  };
+}
+
+/** Merge offer lists, dropping duplicates of the same deal, cheapest first. */
+function mergeOffers(...lists: Offer[][]): Offer[] {
+  const byUrl = new Map<string, Offer>();
+  for (const list of lists) {
+    for (const offer of list) {
+      // Same deal seen twice (once from /deals, once from /games) must not be
+      // counted as two stores — "compared across N stores" would be a lie.
+      if (!byUrl.has(offer.url)) byUrl.set(offer.url, offer);
+    }
+  }
+  return [...byUrl.values()].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+}
+
+/**
+ * Turn one /games entry into offers plus its all-time low. That all-time low is
+ * the fact this vertical is really built around — no single store page shows it.
+ */
+function parseGameDetail(raw: unknown, stores: StoreMap): GameDetail | null {
   if (!isRecord(raw)) return null;
 
   const offers: Offer[] = [];
@@ -147,6 +191,68 @@ async function fetchGameDetail(
   return { offers, cheapestEver };
 }
 
+/**
+ * How many game ids to request at once. /games accepts a comma-separated `ids`
+ * list and returns a map keyed by id, which turns one request per game into one
+ * per batch. Fetching 600 games individually is 600 round trips against a free
+ * API that asks for reasonable use; batched it is 24.
+ */
+const DETAIL_BATCH_SIZE = 25;
+
+/**
+ * Fetch detail for many games, batched, falling back to single-id requests for
+ * any batch the API does not answer in the expected shape. The fallback exists
+ * because the batch and single forms return different envelopes, and an
+ * upstream change to either should degrade rather than empty the catalogue.
+ */
+async function fetchGameDetails(
+  ctx: FetchContext,
+  gameIds: string[],
+  stores: StoreMap,
+): Promise<Map<string, GameDetail>> {
+  const out = new Map<string, GameDetail>();
+
+  for (let i = 0; i < gameIds.length; i += DETAIL_BATCH_SIZE) {
+    const batch = gameIds.slice(i, i + DETAIL_BATCH_SIZE);
+
+    let batched: unknown = null;
+    try {
+      batched = await ctx.get(`${API}/games?ids=${batch.map(encodeURIComponent).join(',')}`);
+    } catch (error) {
+      ctx.log(`  ! detail batch failed, falling back to single requests: ${String(error)}`);
+    }
+
+    let resolved = 0;
+    if (isRecord(batched)) {
+      for (const id of batch) {
+        const detail = parseGameDetail(batched[id], stores);
+        if (detail) {
+          out.set(id, detail);
+          resolved += 1;
+        }
+      }
+    }
+
+    // Anything the batch did not answer is retried individually so a single
+    // unknown id cannot cost us the other 24.
+    if (resolved < batch.length) {
+      for (const id of batch) {
+        if (out.has(id)) continue;
+        try {
+          const detail = parseGameDetail(await ctx.get(`${API}/games?id=${encodeURIComponent(id)}`), stores);
+          if (detail) out.set(id, detail);
+        } catch (error) {
+          ctx.log(`  ! game ${id} failed: ${String(error)}`);
+        }
+      }
+    }
+
+    ctx.log(`  detail ${Math.min(i + DETAIL_BATCH_SIZE, gameIds.length)}/${gameIds.length}`);
+  }
+
+  return out;
+}
+
 /** Buckets that make useful hub pages and match real search phrasing. */
 function priceBand(price: number | null): string | null {
   if (price === null) return null;
@@ -181,22 +287,21 @@ export const cheapsharkSource: DataSource = {
     ctx.log(`Collecting up to ${ctx.limit} games from /deals...`);
     const games = await fetchDealPages(ctx, ctx.limit);
 
-    ctx.log(`Fetching per-game detail for ${games.size} games...`);
+    ctx.log(`Fetching detail for ${games.size} games in batches of ${DETAIL_BATCH_SIZE}...`);
+    const details = await fetchGameDetails(ctx, [...games.keys()], stores);
+
     const items: SourceItem[] = [];
     const taken = new Set<string>();
-    let failures = 0;
+    let missingDetail = 0;
+    let withoutOffers = 0;
 
     for (const [gameID, row] of games) {
-      let detail: Awaited<ReturnType<typeof fetchGameDetail>> = null;
-      try {
-        detail = await fetchGameDetail(ctx, gameID, stores);
-      } catch (error) {
-        // One dead game must not abort a multi-thousand-item run.
-        failures += 1;
-        ctx.log(`  ! game ${gameID} failed: ${String(error)}`);
-      }
+      const detail = details.get(gameID) ?? null;
+      if (detail === null) missingDetail += 1;
 
-      const offers = detail?.offers ?? [];
+      const seed = offerFromDealRow(row, stores);
+      const offers = mergeOffers(detail?.offers ?? [], seed ? [seed] : []);
+      if (offers.length === 0) withoutOffers += 1;
       const best = offers[0] ?? null;
       const facts = [];
 
@@ -270,7 +375,15 @@ export const cheapsharkSource: DataSource = {
       });
     }
 
-    if (failures > 0) ctx.log(`  ${failures} games failed and were kept without offers`);
+    if (missingDetail > 0) {
+      ctx.log(
+        `  ${missingDetail} game(s) had no /games detail; ` +
+          `their /deals offer was used instead`,
+      );
+    }
+    if (withoutOffers > 0) {
+      ctx.log(`  ${withoutOffers} game(s) ended with no offers and will be de-indexed`);
+    }
     return items;
   },
 
