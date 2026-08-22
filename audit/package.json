@@ -10,10 +10,13 @@
     "leads": "tsx src/pipeline/rank-leads.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "fulfil": "tsx src/pipeline/fulfil.ts",
+    "build:web": "tsx src/pipeline/build-web.ts"
   },
   "dependencies": {
-    "node-html-parser": "^6.1.13"
+    "node-html-parser": "^6.1.13",
+    "stripe": "^22.5.0"
   },
   "devDependencies": {
     "@types/node": "22.10.7",
