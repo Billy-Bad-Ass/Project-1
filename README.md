@@ -153,6 +153,28 @@ sub-directory prefix drops away automatically.
 | Variable `SITE_SOURCE` | Which adapter to build (`cheapshark`, `openlibrary`, …) |
 | Variable `AFFILIATES_ENABLED` | `true` only once you have been accepted somewhere |
 | Secrets `AFF_*` | Your affiliate IDs |
+| Variable `GOOGLE_SITE_VERIFICATION` | Search Console ownership token (see below) |
+| Variable `BING_SITE_VERIFICATION` | Bing Webmaster Tools token |
+
+### Getting indexed
+
+A deployed site is not a discovered one. Search engines have no idea the URL
+exists until you tell them, and this is the step that actually starts the
+clock:
+
+1. [Google Search Console](https://search.google.com/search-console) → Add
+   property → **URL prefix** → your site URL.
+2. Choose the **HTML tag** verification method. Copy the token out of the tag —
+   just the `content="..."` value, not the whole tag — and set it as the
+   `GOOGLE_SITE_VERIFICATION` repo variable.
+3. Re-run **Refresh and deploy**, then press Verify.
+4. Submit `<your-site>/sitemap.xml` under Sitemaps.
+5. [Bing Webmaster Tools](https://www.bing.com/webmasters) does the same and
+   can import everything from Search Console in one click.
+
+Then watch **Pages → Indexed**. Pages stuck at *"Discovered — currently not
+indexed"* for weeks mean the content is being judged low value; the fix is
+better pages, not more of them. See [`docs/playbook.md`](docs/playbook.md).
 
 > **Sub-directory hosting is the thing that silently breaks static deploys.**
 > Served from `/<repo>/`, root-absolute links and assets all 404 while the

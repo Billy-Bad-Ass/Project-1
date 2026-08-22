@@ -49,6 +49,16 @@ export interface SiteConfig {
   monetisationEnabled: boolean;
   /** Pages per sitemap chunk. Google's hard limit is 50,000. */
   sitemapChunkSize: number;
+  /**
+   * Search-engine ownership verification tokens. These are the values from the
+   * "HTML tag" method — the token only, not the whole <meta> tag. They are not
+   * secrets: they are served in the page source to anyone who looks.
+   */
+  verification: {
+    google?: string;
+    bing?: string;
+    yandex?: string;
+  };
 }
 
 /**
@@ -90,6 +100,12 @@ export const site: SiteConfig = {
   contactEmail: 'hello@example.com',
   monetisationEnabled: env('AFFILIATES_ENABLED') === 'true',
   sitemapChunkSize: 5000,
+
+  verification: {
+    google: env('GOOGLE_SITE_VERIFICATION'),
+    bing: env('BING_SITE_VERIFICATION'),
+    yandex: env('YANDEX_SITE_VERIFICATION'),
+  },
 
   affiliates: [
     // Fill these in once you are accepted into each programme, then set
