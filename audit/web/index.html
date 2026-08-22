@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Website Health Check — find what's costing you customers</title>
+<meta name="description" content="A plain-English review of your website: what's broken, what it's costing you, and exactly how to fix it. Delivered within one working day.">
+<meta property="og:title" content="Website Health Check">
+<meta property="og:description" content="Find out what's quietly costing you customers. Plain English, no jargon, delivered within one working day.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔍</text></svg>">
+<style>
+  :root{
+    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#fff; --panel:#f8fafc;
+    --accent:#2563eb; --accent-dark:#1d4ed8; --good:#15803d; --bad:#b91c1c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:760px;margin:0 auto;padding:0 24px}
+  a{color:var(--accent)}
+
+  header{padding:72px 0 56px;text-align:center}
+  h1{font-size:clamp(30px,6vw,46px);line-height:1.12;letter-spacing:-.025em;margin:0 0 18px}
+  .sub{font-size:clamp(17px,2.4vw,21px);color:var(--muted);max-width:34em;margin:0 auto 32px}
+  .cta{display:inline-block;background:var(--accent);color:#fff;font-weight:650;font-size:18px;
+       padding:15px 34px;border-radius:9px;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .cta:hover{background:var(--accent-dark)}
+  .cta-note{margin:14px 0 0;font-size:14px;color:var(--muted)}
+
+  section{padding:44px 0;border-top:1px solid var(--line)}
+  h2{font-size:25px;letter-spacing:-.015em;margin:0 0 20px}
+  h3{font-size:17px;margin:0 0 6px}
+
+  .problem{background:var(--panel);border-left:3px solid var(--bad);padding:18px 22px;border-radius:0 8px 8px 0;margin:0 0 26px}
+  .problem p{margin:0}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:22px}
+  .card p{margin:0;color:var(--muted);font-size:15.5px}
+
+  ol.steps{padding-left:0;list-style:none;counter-reset:s;margin:0}
+  ol.steps li{counter-increment:s;position:relative;padding-left:46px;margin-bottom:20px}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:-1px;width:30px;height:30px;
+    border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700}
+  ol.steps p{margin:4px 0 0;color:var(--muted);font-size:15.5px}
+
+  .checks{columns:2;column-gap:32px;padding:0;margin:0;list-style:none;font-size:15.5px}
+  .checks li{break-inside:avoid;margin-bottom:7px;padding-left:22px;position:relative}
+  .checks li::before{content:"✓";position:absolute;left:0;color:var(--good);font-weight:700}
+
+  .price{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:32px;text-align:center}
+  .price .amount{font-size:46px;font-weight:750;letter-spacing:-.03em;line-height:1}
+  .price .per{color:var(--muted);margin:8px 0 22px;font-size:15.5px}
+
+  details{border-bottom:1px solid var(--line);padding:14px 0}
+  details summary{cursor:pointer;font-weight:620;list-style:none}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"+";color:var(--accent);font-weight:700;margin-right:10px}
+  details[open] summary::before{content:"−"}
+  details p{margin:10px 0 0;color:var(--muted);font-size:15.5px}
+
+  footer{padding:36px 0 56px;color:var(--muted);font-size:14px;border-top:1px solid var(--line);text-align:center}
+
+  @media (max-width:560px){ .checks{columns:1} header{padding:52px 0 40px} }
+  @media (prefers-color-scheme:dark){
+    :root{--ink:#e8eef6;--muted:#94a3b8;--line:#24303f;--bg:#0b1220;--panel:#111a29;--accent:#6ea8ff;--accent-dark:#9cc4ff;--good:#4ade9a;--bad:#f87171}
+    .cta{color:#0b1220}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <h1>Find out what your website is quietly costing you</h1>
+    <p class="sub">
+      A plain-English review of your site: what's broken, what each problem costs
+      you in lost customers, and exactly how to fix it. No jargon, no login, no
+      subscription.
+    </p>
+    <!-- STRIPE_PAYMENT_LINK is replaced by build-web.ts -->
+    <a class="cta" href="STRIPE_PAYMENT_LINK">Get my website checked</a>
+    <p class="cta-note">Delivered within one working day · Money back if you don't find it useful</p>
+  </header>
+
+  <section>
+    <h2>Most small business sites have at least one of these</h2>
+    <div class="problem">
+      <p>
+        A phone number that can't be tapped on a mobile. A page telling Google
+        not to list it, left behind after a redesign. A "Not secure" warning in
+        the address bar. None of these announce themselves — the site looks fine
+        to you, because you already know where everything is.
+      </p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h3>You're not sure what's wrong</h3>
+        <p>The site works when you check it. But enquiries are slower than they should be, and nobody can tell you why.</p>
+      </div>
+      <div class="card">
+        <h3>You've been quoted for a rebuild</h3>
+        <p>Before spending thousands, it's worth knowing whether the problem is the whole site or three specific things.</p>
+      </div>
+      <div class="card">
+        <h3>You want a second opinion</h3>
+        <p>Your developer says it's fine. This gives you a list you can hand them, in language you can both check.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li>
+        <h3>Pay and enter your web address</h3>
+        <p>One form. No account to create, nothing to install.</p>
+      </li>
+      <li>
+        <h3>Your site gets checked against 22 things</h3>
+        <p>Everything from whether it works on a phone to whether Google can list it.</p>
+      </li>
+      <li>
+        <h3>You get a report within one working day</h3>
+        <p>Every problem ranked by how much it's costing you, each with a specific fix. Hand it to any developer, or do the easy ones yourself.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>What gets checked</h2>
+    <ul class="checks">
+      <li>Works properly on phones</li>
+      <li>Visitors can zoom in</li>
+      <li>Secure connection (no browser warnings)</li>
+      <li>Nothing loading insecurely</li>
+      <li>Google is allowed to list you</li>
+      <li>Page title and search description</li>
+      <li>Main heading</li>
+      <li>Business details search engines can read</li>
+      <li>Duplicate-address handling</li>
+      <li>A way to get in touch</li>
+      <li>Tap-to-call phone number</li>
+      <li>A clear next step for visitors</li>
+      <li>How links look when shared</li>
+      <li>Server response speed</li>
+      <li>Page weight</li>
+      <li>Images that shift the layout</li>
+      <li>Scripts blocking the page</li>
+      <li>Text alternatives on images</li>
+      <li>Labelled form fields</li>
+      <li>Page language for screen readers</li>
+      <li>Privacy policy where data is collected</li>
+      <li>Broken or error pages</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="price">
+      <div class="amount">PRICE_DISPLAY</div>
+      <p class="per">One-off. No subscription, no account.</p>
+      <a class="cta" href="STRIPE_PAYMENT_LINK">Get my website checked</a>
+      <p class="cta-note">Secure payment via Stripe · Card details never touch this site</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Questions</h2>
+
+    <details>
+      <summary>What if my site turns out to be fine?</summary>
+      <p>
+        Then the report says so, and lists what's already working. That's a
+        genuine answer — it means the problem is elsewhere and you can stop
+        spending money on the website. If you feel it wasn't worth it, ask for a
+        refund and you'll get one.
+      </p>
+    </details>
+
+    <details>
+      <summary>Do I need to be technical to use this?</summary>
+      <p>
+        No. Every finding is written in plain English and says what it costs you
+        in customers, not what it's called. Each one also has the specific fix,
+        so you can hand the report to whoever maintains your site.
+      </p>
+    </details>
+
+    <details>
+      <summary>Will you change anything on my site?</summary>
+      <p>
+        No. This is read-only — the site is looked at exactly the way a visitor's
+        browser looks at it. Nothing is altered, and no login is needed.
+      </p>
+    </details>
+
+    <details>
+      <summary>How thorough is it?</summary>
+      <p>
+        It checks your home page against 22 specific things, which is where the
+        problems that affect every visitor live. It is not a full technical audit
+        of every page, and the speed findings are indicators worth investigating
+        rather than a complete performance profile. The report says this too.
+      </p>
+    </details>
+
+    <details>
+      <summary>How quickly will I get it?</summary>
+      <p>Within one working day, by email, as a PDF you can forward to anyone.</p>
+    </details>
+  </section>
+
+  <footer>
+    <p>SENDER_BUSINESS · <a href="mailto:SENDER_EMAIL">SENDER_EMAIL</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

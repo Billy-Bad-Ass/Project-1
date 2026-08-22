@@ -1,0 +1,26 @@
+{
+  "name": "site-audit-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Scans websites for fixable problems and produces client-ready audit reports plus a ranked outreach list.",
+  "scripts": {
+    "audit": "tsx src/pipeline/run-audit.ts",
+    "report": "tsx src/pipeline/build-reports.ts",
+    "leads": "tsx src/pipeline/rank-leads.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "check": "npm run typecheck && npm test",
+    "fulfil": "tsx src/pipeline/fulfil.ts",
+    "build:web": "tsx src/pipeline/build-web.ts"
+  },
+  "dependencies": {
+    "node-html-parser": "^6.1.13",
+    "stripe": "^22.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.7",
+    "tsx": "4.23.12",
+    "typescript": "5.7.3"
+  }
+}

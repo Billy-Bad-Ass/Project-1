@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thanks — your website check is booked</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔍</text></svg>">
+<style>
+  :root{--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#fff;--panel:#f8fafc;--accent:#2563eb;--good:#15803d}
+  *{box-sizing:border-box}
+  body{margin:0;font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:var(--bg);display:grid;place-items:center;min-height:100vh}
+  .card{max-width:560px;padding:40px 28px;text-align:center}
+  .tick{width:60px;height:60px;border-radius:50%;background:var(--good);color:#fff;display:grid;place-items:center;
+        font-size:30px;margin:0 auto 22px}
+  h1{font-size:29px;letter-spacing:-.02em;margin:0 0 14px}
+  p{color:var(--muted);margin:0 0 16px}
+  .ref{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+       font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);word-break:break-all}
+  .ref span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+  a{color:var(--accent)}
+  @media (prefers-color-scheme:dark){
+    :root{--ink:#e8eef6;--muted:#94a3b8;--line:#24303f;--bg:#0b1220;--panel:#111a29;--accent:#6ea8ff;--good:#4ade9a}
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="tick">✓</div>
+    <h1>Thanks — that's booked in</h1>
+    <p>
+      Your payment went through and a receipt is on its way to your email.
+      Your report will arrive within one working day.
+    </p>
+    <p>
+      Nothing else to do. If you want to add anything about the site first,
+      just reply to the receipt email.
+    </p>
+    <div class="ref" id="ref" hidden>
+      <span>Your reference</span>
+      <code id="ref-value"></code>
+    </div>
+  </div>
+
+<script>
+  // Stripe substitutes the session id into the return URL. Showing it gives the
+  // customer something concrete to quote, and it is not sensitive — it is their
+  // own order, and it carries no payment details.
+  try {
+    var id = new URLSearchParams(location.search).get('session_id');
+    if (id) {
+      document.getElementById('ref-value').textContent = id;
+      document.getElementById('ref').hidden = false;
+    }
+  } catch (e) {
+    // A missing reference is cosmetic; never let it break the page.
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+node_modules/
+# Generated audit output: reports, outreach lists, raw results.
+out/
+# Cached HTTP responses from scanned sites.
+.cache/
+*.tsbuildinfo
