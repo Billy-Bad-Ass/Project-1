@@ -1,0 +1,18 @@
+# Sites to audit, one per line. Blank lines and # comments are ignored.
+#
+# This file is the validation set: a deliberately varied mix of real public
+# sites — large and small, modern and dated — chosen to prove the engine
+# survives real-world HTML rather than only the tidy fixtures.
+#
+# Replace with your actual prospect list when you go looking for clients.
+
+example.com
+wikipedia.org
+gov.uk
+bbc.co.uk
+craigslist.org
+berkshirehathaway.com
+motherfuckingwebsite.com
+nytimes.com
+apache.org
+stackoverflow.com

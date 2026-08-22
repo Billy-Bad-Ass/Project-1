@@ -1,0 +1,75 @@
+name: Audit live sites
+
+# Runs the audit engine against real websites. The dev sandbox blocks outside
+# hosts, so this is the only way to find out what real HTML does to it.
+#
+# On demand only: it fetches strangers' servers, and firing that on every push
+# would be rude and pointless.
+on:
+  workflow_dispatch:
+    inputs:
+      list:
+        description: 'Prospect list file'
+        default: 'prospects.example.txt'
+      concurrency:
+        description: 'Sites in flight at once'
+        default: '2'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: audit
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: audit/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck and unit tests
+        run: npm run check
+
+      - name: Audit real sites
+        run: |
+          npm run audit -- \
+            --list "${{ github.event.inputs.list || 'prospects.example.txt' }}" \
+            --concurrency "${{ github.event.inputs.concurrency || '2' }}"
+
+      - name: Show the outreach list
+        run: cat out/leads.md
+
+      - name: Sanity-check the output
+        run: |
+          set -e
+          test -f out/audits.json
+          # Every audited site must produce a report file, or the pipeline is
+          # silently losing work the way the filename collision did.
+          audited=$(node -e "const a=require('./out/audits.json');console.log(a.filter(x=>!x.error).length)")
+          reports=$(ls out/reports/*.html 2>/dev/null | wc -l)
+          echo "audited=$audited reports=$reports"
+          if [ "$audited" -ne "$reports" ]; then
+            echo "MISMATCH: $audited sites audited but $reports reports written"
+            exit 1
+          fi
+          # A run where nothing was reachable means the engine, not the sites.
+          if [ "$audited" -eq 0 ]; then
+            echo "No site could be audited at all"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: live-audit-results
+          path: |
+            audit/out/reports/
+            audit/out/leads.md
+            audit/out/leads.csv
+            audit/out/audits.json
+          retention-days: 14
