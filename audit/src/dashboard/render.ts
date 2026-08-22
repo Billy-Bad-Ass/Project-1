@@ -42,7 +42,20 @@ function funnelBar(label: string, value: number, of: number, tone: string): stri
       </div>`;
 }
 
-export function renderDashboard(snapshot: Snapshot, allRows: Row[]): string {
+export interface RenderOptions {
+  /**
+   * Shown as a banner at the top. Used to mark a published copy as sample
+   * data — a bookmarked dashboard full of invented businesses is a trap, and
+   * the reader cannot tell from the numbers alone.
+   */
+  notice?: string;
+}
+
+export function renderDashboard(
+  snapshot: Snapshot,
+  allRows: Row[],
+  options: RenderOptions = {},
+): string {
   const f = funnel(snapshot);
   const needsYou = allRows.filter((r) => r.stage === 'replied');
   const notContacted = allRows.filter((r) => r.stage === 'audited');
@@ -136,6 +149,8 @@ export function renderDashboard(snapshot: Snapshot, allRows: Row[]): string {
   .pill-audited{color:var(--soft);opacity:.75}
   .pill-closed{color:var(--soft);opacity:.5}
 
+  .banner{background:var(--warn);color:#fff;border-radius:9px;padding:11px 15px;
+          font-size:13.5px;font-weight:600;margin-bottom:20px}
   .empty{color:var(--soft);font-size:14px;margin:0}
   .note{color:var(--soft);font-size:12.5px;margin:14px 0 0}
   code{font-family:var(--mono);font-size:12px;background:var(--rule-soft);padding:1px 5px;border-radius:4px}
@@ -143,6 +158,12 @@ export function renderDashboard(snapshot: Snapshot, allRows: Row[]): string {
 </head>
 <body>
 <div class="wrap">
+
+  ${
+    options.notice
+      ? `<div class="banner">${escapeHtml(options.notice)}</div>`
+      : ''
+  }
 
   <header>
     <h1>Pipeline</h1>
