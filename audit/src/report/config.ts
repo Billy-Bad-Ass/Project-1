@@ -1,3 +1,8 @@
+import { loadEnv } from '../lib/env';
+
+// Pick up .env.local before any value below is read.
+loadEnv();
+
 /** Who the report is from. Edit this once; it brands every audit you send. */
 
 export interface SenderConfig {

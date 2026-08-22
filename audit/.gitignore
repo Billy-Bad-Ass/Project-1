@@ -1,6 +1,13 @@
 node_modules/
-# Generated audit output: reports, outreach lists, raw results.
+# Generated audit output: reports, outreach lists, prospect lists, dashboards.
 out/
 # Cached HTTP responses from scanned sites.
 .cache/
 *.tsbuildinfo
+
+# Your details and any keys. This repository is public — nothing here is
+# committed, and that is deliberate: an email address in a public repo is
+# scraped by spam bots within days.
+.env
+.env.local
+.env.*.local
