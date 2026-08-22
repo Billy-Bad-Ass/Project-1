@@ -1,0 +1,226 @@
+/*
+ * Design tokens and base styles. Plain CSS on purpose: no build-time CSS
+ * framework means one less dependency to keep patched, and a static export
+ * that ships a few kilobytes of stylesheet instead of a few hundred.
+ */
+
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f6f7f9;
+  --bg-raised: #ffffff;
+  --border: #e3e6ea;
+  --border-strong: #cbd1d8;
+  --text: #14181d;
+  --text-muted: #5b6572;
+  --accent: #1a5fd0;
+  --accent-hover: #14479c;
+  --good: #0d7a4a;
+  --good-bg: #e6f5ee;
+  --warn-bg: #fff6e0;
+  --warn-border: #e8c766;
+  --radius: 10px;
+  --maxw: 1080px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216;
+    --bg-subtle: #161a20;
+    --bg-raised: #171c22;
+    --border: #262c34;
+    --border-strong: #39424d;
+    --text: #e8ecf1;
+    --text-muted: #9aa5b3;
+    --accent: #6ea8ff;
+    --accent-hover: #9cc4ff;
+    --good: #4ade9a;
+    --good-bg: #10291f;
+    --warn-bg: #2a2413;
+    --warn-border: #6b5a24;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+h1, h2, h3 { line-height: 1.25; margin: 0 0 0.5em; letter-spacing: -0.015em; }
+h1 { font-size: clamp(1.6rem, 4vw, 2.25rem); }
+h2 { font-size: clamp(1.25rem, 3vw, 1.5rem); margin-top: 2rem; }
+h3 { font-size: 1.1rem; }
+p { margin: 0 0 1rem; }
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 1.25rem; }
+
+/* ---------- header / footer ---------- */
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.site-header .inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.9rem;
+  flex-wrap: wrap;
+}
+.brand { font-weight: 700; font-size: 1.1rem; color: var(--text); }
+.brand:hover { text-decoration: none; color: var(--accent); }
+.brand small { display: block; font-weight: 400; font-size: 0.78rem; color: var(--text-muted); }
+.site-nav { display: flex; gap: 1.25rem; font-size: 0.95rem; }
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  margin-top: 4rem;
+  padding-block: 2rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  background: var(--bg-subtle);
+}
+.site-footer a { color: var(--text-muted); text-decoration: underline; }
+
+main { padding-block: 2rem 1rem; }
+
+/* ---------- notices ---------- */
+
+.notice {
+  border: 1px solid var(--warn-border);
+  background: var(--warn-bg);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+.notice strong { display: block; margin-bottom: 0.15rem; }
+
+.disclosure {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 1.25rem;
+}
+
+/* ---------- breadcrumbs ---------- */
+
+.crumbs { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+.crumbs ol { list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; }
+.crumbs li::after { content: "/"; margin-left: 0.4rem; color: var(--border-strong); }
+.crumbs li:last-child::after { content: ""; }
+
+/* ---------- tables ---------- */
+
+.table-scroll { overflow-x: auto; margin-bottom: 1.5rem; }
+
+table { border-collapse: collapse; width: 100%; font-size: 0.94rem; }
+th, td { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); }
+th { font-weight: 600; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+tbody tr:last-child td { border-bottom: none; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.price { font-weight: 700; font-variant-numeric: tabular-nums; }
+.price-was { color: var(--text-muted); text-decoration: line-through; font-weight: 400; margin-left: 0.4rem; font-size: 0.9em; }
+
+.badge {
+  display: inline-block;
+  background: var(--good-bg);
+  color: var(--good);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 0.4rem 0.9rem;
+  border-radius: 7px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--accent-hover); color: #fff; text-decoration: none; }
+
+/* ---------- cards ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.card h3 { margin: 0; font-size: 1rem; }
+.card .meta { color: var(--text-muted); font-size: 0.85rem; margin: 0; }
+.card .card-price { margin-top: auto; padding-top: 0.5rem; }
+
+/* ---------- misc ---------- */
+
+.lede { font-size: 1.05rem; color: var(--text-muted); max-width: 62ch; }
+.stat-row { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 1.5rem 0; }
+.stat { }
+.stat .value { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.attribution { font-size: 0.82rem; color: var(--text-muted); margin-top: 2rem; }
+.updated { font-size: 0.85rem; color: var(--text-muted); }
+
+.pager { display: flex; gap: 0.75rem; align-items: center; justify-content: center; margin: 2rem 0; font-size: 0.9rem; }
+.pager span { color: var(--text-muted); }
+
+.prose { max-width: 68ch; }
+.prose ul { padding-left: 1.2rem; }
+.prose li { margin-bottom: 0.4rem; }
+.prose code { font-family: var(--mono); background: var(--bg-subtle); padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.9em; }
+
+/* Screen-reader-only text: keeps link and table labels descriptive without
+   cluttering the visual design. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+caption.visually-hidden { display: block; }

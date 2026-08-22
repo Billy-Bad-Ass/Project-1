@@ -1,0 +1,77 @@
+name: Refresh and deploy
+
+# Rebuilds the dataset from live APIs and redeploys. Runs on GitHub's free
+# tier for public repositories.
+on:
+  schedule:
+    # 04:15 UTC daily. Off the hour on purpose: scheduled jobs at :00 queue
+    # behind everyone else's and get delayed.
+    - cron: '15 4 * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max items to fetch'
+        default: '600'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two refreshes deploy at once.
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Persists the HTTP cache between runs so a re-run after a failure does
+      # not re-spend rate-limited requests.
+      - name: Restore API cache
+        uses: actions/cache@v4
+        with:
+          path: data/cache
+          key: api-cache-${{ github.run_id }}
+          restore-keys: api-cache-
+
+      - name: Build dataset from live APIs
+        run: npm run data:build -- --limit ${{ github.event.inputs.limit || '600' }}
+        env:
+          SITE_SOURCE: ${{ vars.SITE_SOURCE }}
+
+      - name: Dataset report
+        run: npm run data:stats
+
+      - name: Build static site
+        run: npm run build
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          AFFILIATES_ENABLED: ${{ vars.AFFILIATES_ENABLED }}
+          AFF_FANATICAL: ${{ secrets.AFF_FANATICAL }}
+          AFF_GMG: ${{ secrets.AFF_GMG }}
+          AFF_HUMBLE: ${{ secrets.AFF_HUMBLE }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

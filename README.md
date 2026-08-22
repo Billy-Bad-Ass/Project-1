@@ -1,1 +1,175 @@
-# Project-1
+# pSEO Forge
+
+A programmatic-SEO affiliate site engine that runs entirely on free-tier APIs.
+
+It turns a public data source into a few hundred to a few thousand statically
+generated pages — each with real data, structured markup, and monetisable
+outbound links — and rebuilds itself daily on free CI.
+
+Two verticals ship working out of the box:
+
+- **`cheapshark`** — PC game price comparison across ~30 stores (no API key)
+- **`openlibrary`** — book discovery and buying links (no API key)
+
+Swapping to a different niche means writing one file. See
+[`docs/adding-a-source.md`](docs/adding-a-source.md).
+
+> **Read [`docs/playbook.md`](docs/playbook.md) before you invest time in this.**
+> The code is finished; whether it earns anything depends on niche choice,
+> patience, and staying on the right side of search engines' scaled-content
+> policies. That document is blunt about the odds.
+
+## Quick start
+
+```bash
+npm install
+
+# Build a dataset. --offline uses committed synthetic fixtures, so this
+# works with no network access at all.
+npm run data:build -- --offline --limit 400
+
+# See what would actually be published
+npm run data:stats
+
+# Build the static site into ./out
+npm run build
+
+# Serve it locally
+npm start
+```
+
+For live data, drop `--offline`:
+
+```bash
+npm run data:build -- --limit 600          # cheapshark, no key needed
+SITE_SOURCE=openlibrary npm run data:build -- --limit 600
+```
+
+## How it works
+
+```
+  free API                                          ./out (static HTML)
+     │                                                      ▲
+     ▼                                                      │
+┌──────────┐   ┌───────────┐   ┌──────────────┐   ┌─────────────────┐
+│ adapter  │──▶│  quality  │──▶│ dataset.json │──▶│  Next.js SSG    │
+│          │   │   gate    │   │              │   │  + JSON-LD      │
+└──────────┘   └───────────┘   └──────────────┘   └─────────────────┘
+     │               │                                      │
+ throttled +    suppress / noindex                    sitemap index
+ disk-cached    thin pages                            (post-build)
+```
+
+The site itself performs **no network I/O**. It reads one JSON file produced by
+the pipeline, which makes builds fast, reproducible, and independent of whether
+an upstream API is up.
+
+| Path | Role |
+|---|---|
+| `config/site.config.ts` | The one file you edit — name, domain, niche, affiliate networks |
+| `src/lib/sources/` | Niche adapters. Add a file, register it, done |
+| `src/lib/quality.ts` | Decides publish / noindex / suppress per page |
+| `src/lib/affiliate.ts` | Link decoration, `rel="sponsored"`, disclosure enforcement |
+| `src/lib/seo.ts` | Metadata and JSON-LD (Product, AggregateOffer, FAQ, Breadcrumb) |
+| `src/lib/http.ts` | Throttled, disk-cached, retrying HTTP — adapters must use it |
+| `src/pipeline/` | `build-dataset`, `stats`, `sitemap`, `enrich-firecrawl`, `make-fixtures` |
+
+## The quality gate
+
+The thing that separates this from a page generator. Before anything is built,
+every item is scored:
+
+| Verdict | Meaning |
+|---|---|
+| **publish** | Indexable, in the sitemap, linked from hubs |
+| **noindex** | Built and reachable, but `noindex` and excluded from the sitemap |
+| **suppress** | Not built at all |
+
+```
+$ npm run data:stats
+
+Pages total:   398
+  indexable:   386
+  noindex:     12
+  suppressed:  2 (not built at all)
+```
+
+Pages with no offers are kept for readers but withheld from search. Summaries
+that differ only in their numbers are detected as templated and noindexed. This
+is deliberate: publishing thin pages at scale is the single fastest way to get
+a whole domain deindexed. See [`docs/playbook.md`](docs/playbook.md).
+
+## Monetisation
+
+Affiliate links are **off by default**. Set `AFFILIATES_ENABLED=true` only after
+you have been accepted into a programme:
+
+```bash
+AFFILIATES_ENABLED=true AFF_FANATICAL=your-id npm run build
+```
+
+The system enforces two things you cannot forget per-page:
+
+- A network with missing credentials emits a **clean, undecorated link** rather
+  than a broken tracking one.
+- Any page carrying a monetised link renders an **FTC disclosure** automatically
+  — `OfferTable` will not emit one without the other.
+
+Store listings are always ordered by **price, cheapest first**, never by
+commission. The disclosure says so, which makes it a promise the code has to keep.
+
+## Deployment ($0)
+
+`npm run build` emits a fully static `./out`. Any static host works.
+
+`.github/workflows/refresh.yml` rebuilds from live APIs daily at 04:15 UTC and
+deploys to GitHub Pages on the free tier. Configure under repo settings:
+
+- **Variables:** `SITE_URL`, `SITE_SOURCE`, `AFFILIATES_ENABLED`
+- **Secrets:** `AFF_FANATICAL`, `AFF_GMG`, `AFF_HUMBLE`
+
+Serving from a `github.io` subpath needs `basePath` in `next.config.mjs`. For a
+commercial site, use a real domain instead — see the playbook.
+
+`.github/workflows/ci.yml` typechecks, tests, and builds against **offline
+fixtures**, so CI never depends on a third-party API or spends free quota.
+
+## Optional: Firecrawl enrichment
+
+Adds a short, attributed review excerpt to the highest-value pages. Entirely
+optional — the site builds and ranks without it.
+
+```bash
+npm run data:enrich -- --dry-run              # plan + cost, spends nothing
+npm run data:enrich -- --limit 50 --budget 120
+```
+
+Firecrawl's free tier is a one-off credit grant, not a monthly refill, so the
+script caches every result **permanently**, enriches in value order, and refuses
+to exceed `--budget`.
+
+## Development
+
+```bash
+npm run check      # typecheck + unit tests
+npm run dev        # dev server
+npm test           # 36 unit tests
+npm run verify     # post-build integrity check (run after `npm run build`)
+```
+
+`npm run verify` fails on broken internal links, indexable pages missing from
+the sitemap, or noindex pages leaking into it. CI runs it on every push.
+
+## Docs
+
+- [`docs/playbook.md`](docs/playbook.md) — realistic expectations, costs, and the
+  scaled-content rule that kills most sites like this
+- [`docs/data-sources.md`](docs/data-sources.md) — verified no-key APIs worth
+  building on, and which ones actually have an affiliate angle
+- [`docs/adding-a-source.md`](docs/adding-a-source.md) — how to switch niches
+
+## Licence
+
+MIT for this code. The data sources have their own terms — each adapter
+declares an `attribution` that is rendered in the site footer. Read the terms
+of any API before putting ads on top of it.

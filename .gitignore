@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Secrets
+.env
+.env.local
+
+# Generated dataset + HTTP cache. Rebuild with `npm run data:build`.
+data/cache/
+data/datasets/
