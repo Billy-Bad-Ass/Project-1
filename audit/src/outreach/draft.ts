@@ -149,7 +149,7 @@ export function draftFirstEmail(audit: SiteAudit, options: DraftOptions = {}): E
 
   const others =
     serious > 1
-      ? `\n\nThere are ${serious - 1} other ${serious - 1 === 1 ? 'thing' : 'things'} in the same vein. I put the lot in a short report — it's attached, and it says what each one is costing you and how to fix it.`
+      ? `\n\nThere ${serious - 1 === 1 ? 'is' : 'are'} ${serious - 1} other ${serious - 1 === 1 ? 'thing' : 'things'} in the same vein. I put everything in a short report — it's attached, and it says what each one is costing you and how to fix it.`
       : `\n\nI wrote up what I found in a short report — it's attached, and it says how to fix it.`;
 
   const body = [

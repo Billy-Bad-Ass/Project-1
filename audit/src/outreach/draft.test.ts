@@ -127,3 +127,20 @@ test('the signal and its consequence are separate paragraphs', () => {
   assert.ok(signalLine > 0);
   assert.equal(lines[signalLine + 1], '', 'a blank line must follow the opener');
 });
+
+test('the count and the verb agree', () => {
+  // "There are 1 other thing" pluralises the noun but not the verb, which is
+  // exactly the tell that marks an email as machine-written.
+  const two = draftFirstEmail(
+    audit([finding('contact-method'), finding('https')]),
+    { compliance },
+  );
+  assert.match(two!.body, /There is 1 other thing/);
+  assert.doesNotMatch(two!.body, /There are 1 /);
+
+  const three = draftFirstEmail(
+    audit([finding('contact-method'), finding('https'), finding('mobile-viewport')]),
+    { compliance },
+  );
+  assert.match(three!.body, /There are 2 other things/);
+});
