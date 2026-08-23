@@ -53,6 +53,11 @@ export interface AreaMatch {
   /** A point inside the boundary, used to work out the country. */
   lat: number | null;
   lon: number | null;
+  /**
+   * Population, where the boundary carries it. The tie-breaker when two places
+   * share a name *and* an administrative level — see `chooseArea`.
+   */
+  population: number | null;
   /** Human description for the log, e.g. "Bristol (GB, admin level 6)". */
   describe: string;
 }
@@ -131,8 +136,15 @@ export function parseAreas(raw: unknown): AreaMatch[] {
     const name = firstString(tags, 'name') ?? '(unnamed)';
     const adminLevel = firstString(tags, 'admin_level');
 
+    const populationTag = firstString(tags, 'population');
+    const parsedPopulation = populationTag ? Number(populationTag.replace(/[^0-9]/g, '')) : NaN;
+    const population = Number.isFinite(parsedPopulation) && parsedPopulation > 0 ? parsedPopulation : null;
+
     const parts = [country ?? 'country unknown'];
     if (adminLevel) parts.push(`admin level ${adminLevel}`);
+    // Shown because admin level alone does not separate a Virginia independent
+    // city from the county beside it — population is what tells them apart.
+    if (population) parts.push(`pop. ${population.toLocaleString('en-US')}`);
 
     areas.push({
       // Overpass area ids are the relation id offset by 3.6 billion.
@@ -143,6 +155,7 @@ export function parseAreas(raw: unknown): AreaMatch[] {
       region: firstString(tags, 'ISO3166-2'),
       lat: typeof lat === 'number' ? lat : null,
       lon: typeof lon === 'number' ? lon : null,
+      population,
       describe: `${name} (${parts.join(', ')})`,
     });
   }
@@ -155,6 +168,12 @@ export function parseAreas(raw: unknown): AreaMatch[] {
  *
  * Prefers an explicit country, then the largest administrative unit — a city
  * boundary yields far more businesses than a parish inside it.
+ *
+ * Admin level alone is not enough. In Virginia an independent city is a
+ * county-equivalent, so the City of Fairfax and Fairfax County are both
+ * admin level 6: a live run for "Fairfax" searched the city of 24,000 and
+ * returned 2 dentists, where the county of 1.1 million returned 43. Where the
+ * level ties, the larger population wins.
  */
 export function chooseArea(areas: AreaMatch[], country?: string): AreaMatch | null {
   if (areas.length === 0) return null;
@@ -168,7 +187,12 @@ export function chooseArea(areas: AreaMatch[], country?: string): AreaMatch | nu
     // Lower admin_level is a larger area. Unknown levels sort last.
     const levelA = a.adminLevel ? Number(a.adminLevel) : 99;
     const levelB = b.adminLevel ? Number(b.adminLevel) : 99;
-    return levelA - levelB;
+    if (levelA !== levelB) return levelA - levelB;
+
+    // Same level: the more populous place is the one someone naming a region
+    // almost always means. An unknown population sorts last rather than first,
+    // so a well-described small place never beats a well-described large one.
+    return (b.population ?? -1) - (a.population ?? -1);
   })[0]!;
 }
 
@@ -366,6 +390,13 @@ export async function discoverProspects(options: DiscoverOptions): Promise<Prosp
 
   if (areas.length > 1) {
     log(`  ${areas.length} places share that name. Using ${chosen.describe}.`);
+    // Name the runners-up. "Using Fairfax" told us nothing when the choice was
+    // between a city of 24,000 and the county of 1.1 million around it.
+    const others = areas.filter((a) => a.id !== chosen.id).slice(0, 4);
+    for (const other of others) log(`    also matched: ${other.describe}`);
+    if (areas.length - 1 > others.length) {
+      log(`    ...and ${areas.length - 1 - others.length} more`);
+    }
     if (!options.country) {
       log('  Not the one you meant? Pass --country GB (or US, IE, ...) to pin it down.');
     }

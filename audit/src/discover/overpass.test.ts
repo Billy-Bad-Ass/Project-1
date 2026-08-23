@@ -8,6 +8,7 @@ import {
   normaliseWebsite,
   parseAreas,
   parseElements,
+  type AreaMatch,
 } from './overpass';
 import { findCategory } from './categories';
 
@@ -343,4 +344,46 @@ test('an unknown business type fails with a usable message', async () => {
     () => discoverProspects({ category: 'astronaut', area: 'Leeds' }),
     /Unknown business type/,
   );
+});
+
+test('a populous place beats a small one at the same admin level', () => {
+  // Virginia independent cities are county-equivalents, so the City of Fairfax
+  // and Fairfax County are both admin level 6. A live run for "Fairfax" picked
+  // the city of 24,000 and found 2 dentists; the county of 1.1 million had 43.
+  const city: AreaMatch = {
+    id: 1, name: 'Fairfax', adminLevel: '6', country: 'US', region: null,
+    lat: 38.85, lon: -77.3, population: 24_146, describe: 'Fairfax city',
+  };
+  const county: AreaMatch = {
+    id: 2, name: 'Fairfax County', adminLevel: '6', country: 'US', region: null,
+    lat: 38.83, lon: -77.28, population: 1_150_309, describe: 'Fairfax County',
+  };
+  assert.equal(chooseArea([city, county], 'US')?.id, county.id);
+  assert.equal(chooseArea([county, city], 'US')?.id, county.id);
+});
+
+test('admin level still outranks population', () => {
+  // A populous town inside a sparsely-populated region must not beat the
+  // region: level is the stronger signal, population only breaks ties.
+  const region: AreaMatch = {
+    id: 1, name: 'X', adminLevel: '4', country: 'US', region: null,
+    lat: 0, lon: 0, population: 50_000, describe: 'region',
+  };
+  const town: AreaMatch = {
+    id: 2, name: 'X', adminLevel: '8', country: 'US', region: null,
+    lat: 0, lon: 0, population: 900_000, describe: 'town',
+  };
+  assert.equal(chooseArea([town, region], 'US')?.id, region.id);
+});
+
+test('an unknown population never beats a known one', () => {
+  const known: AreaMatch = {
+    id: 1, name: 'X', adminLevel: '6', country: 'US', region: null,
+    lat: 0, lon: 0, population: 1_000, describe: 'known',
+  };
+  const unknown: AreaMatch = {
+    id: 2, name: 'X', adminLevel: '6', country: 'US', region: null,
+    lat: 0, lon: 0, population: null, describe: 'unknown',
+  };
+  assert.equal(chooseArea([unknown, known], 'US')?.id, known.id);
 });
