@@ -6,6 +6,7 @@ import {
   BRAND_INK,
   BRAND_INK_ON_DARK,
   BRAND_SIGNATURE_CSS,
+  brandFaviconDataUri,
   brandMark,
   brandSignature,
 } from './brand';
@@ -81,6 +82,31 @@ test('the wordmark reads BBA NETWORK', () => {
   const sig = brandSignature();
   assert.match(sig, />BBA</);
   assert.match(sig, />NETWORK</);
+});
+
+test('the favicon escapes the characters that would break the data URI', () => {
+  const uri = brandFaviconDataUri();
+  // A raw '#' ends a URL, so every colour after the first would be discarded
+  // and the icon would render as an untinted box.
+  assert.doesNotMatch(uri, /#/, 'a literal # truncates the data URI');
+  assert.match(uri, /%232B5CE6/, 'the accent must survive encoding');
+  // A double quote would close the href attribute early.
+  assert.doesNotMatch(uri, /"/);
+});
+
+test('the favicon is a self-contained SVG data URI', () => {
+  const uri = brandFaviconDataUri();
+  assert.ok(uri.startsWith('data:image/svg+xml,'));
+  assert.match(uri, /%3Csvg/);
+  assert.match(uri, /%3C\/svg%3E$/);
+});
+
+test('the favicon drops detail the full mark cannot keep at 16px', () => {
+  const uri = brandFaviconDataUri();
+  // Four bars, not eight, and no breakout square — at a tab-strip size the
+  // full lockup turns to mush and the square lands on a single pixel.
+  assert.equal(uri.match(/%3Cline/g)?.length, 5, 'four bars plus the accent line');
+  assert.doesNotMatch(uri, /%3Crect x=/, 'the breakout square is dropped');
 });
 
 test('the mark is labelled for screen readers', () => {

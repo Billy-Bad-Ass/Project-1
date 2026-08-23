@@ -1,6 +1,7 @@
 import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { sender } from '../report/config';
+import { BRAND_SIGNATURE_CSS, brandFaviconDataUri, brandSignature } from '../report/brand';
 
 /**
  * Builds the sales site by substituting real values into the templates.
@@ -48,6 +49,28 @@ function replacements(): Replacement[] {
       value: sender.email,
       required: false,
       hint: 'AUDIT_SENDER_EMAIL',
+    },
+    // The brand is substituted rather than pasted into the templates so the
+    // site, the reports and the dashboard all draw the mark from one module.
+    // A hand-copied SVG in a template is a copy that silently stops matching
+    // the day the logo changes.
+    {
+      token: 'BRAND_SIGNATURE',
+      value: brandSignature(),
+      required: false,
+      hint: 'generated from report/brand.ts',
+    },
+    {
+      token: 'BRAND_CSS',
+      value: BRAND_SIGNATURE_CSS,
+      required: false,
+      hint: 'generated from report/brand.ts',
+    },
+    {
+      token: 'BRAND_FAVICON',
+      value: brandFaviconDataUri(),
+      required: false,
+      hint: 'generated from report/brand.ts',
     },
   ];
 }

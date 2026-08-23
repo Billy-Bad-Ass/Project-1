@@ -73,6 +73,41 @@ export function brandMark(height: number, surface: 'light' | 'dark' = 'light'): 
 }
 
 /**
+ * The favicon as a `data:` URI, ready for `<link rel="icon" href="...">`.
+ *
+ * A simplified mark: four bars and the accent line, no breakout square. At
+ * 16px the full lockup collapses into grey mush, and the square would land on
+ * a single pixel. The heavier strokes and the deep background are what make it
+ * legible in a tab strip.
+ *
+ * Left un-encoded except for the characters that would terminate the attribute
+ * or break URL parsing — `#` in particular ends the URL and would silently
+ * strip every colour.
+ */
+export function brandFaviconDataUri(): string {
+  const bars = [
+    [30, 66, 24],
+    [21, 75, 36],
+    [21, 75, 60],
+    [30, 66, 72],
+  ]
+    .map(([x1, x2, y]) => `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"/>`)
+    .join('');
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">` +
+    `<rect width="96" height="96" fill="${BRAND_INK_DEEP}"/>` +
+    `<g stroke="${BRAND_PAPER}" stroke-width="8">${bars}</g>` +
+    `<line x1="18" y1="48" x2="78" y2="48" stroke="${BRAND_ACCENT}" stroke-width="8"/>` +
+    `</svg>`;
+  const encoded = svg
+    .replace(/#/g, '%23')
+    .replace(/"/g, "'")
+    .replace(/</g, '%3C')
+    .replace(/>/g, '%3E');
+  return `data:image/svg+xml,${encoded}`;
+}
+
+/**
  * Mark plus wordmark, laid out horizontally — the signature lockup.
  *
  * The wordmark is live text rather than outlines so it stays selectable and

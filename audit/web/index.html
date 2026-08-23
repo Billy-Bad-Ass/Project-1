@@ -7,18 +7,20 @@
 <meta name="description" content="A plain-English review of your website: what's broken, what it's costing you, and exactly how to fix it. Delivered within one working day.">
 <meta property="og:title" content="Website Health Check">
 <meta property="og:description" content="Find out what's quietly costing you customers. Plain English, no jargon, delivered within one working day.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔍</text></svg>">
+<link rel="icon" href="BRAND_FAVICON">
 <style>
   :root{
-    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#fff; --panel:#f8fafc;
-    --accent:#2563eb; --accent-dark:#1d4ed8; --good:#15803d; --bad:#b91c1c;
+    --ink:#12161F; --muted:#5A6472; --line:#dfe3ea; --bg:#fff; --panel:#f5f6f8;
+    --accent:#2B5CE6; --accent-dark:#1E45B8; --good:#0f7a52; --bad:#b0322a;
   }
+  BRAND_CSS
   *{box-sizing:border-box}
   body{margin:0;font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
   .wrap{max-width:760px;margin:0 auto;padding:0 24px}
   a{color:var(--accent)}
 
-  header{padding:72px 0 56px;text-align:center}
+  .masthead{padding:26px 0 0;display:flex;justify-content:center}
+  header{padding:52px 0 56px;text-align:center}
   h1{font-size:clamp(30px,6vw,46px);line-height:1.12;letter-spacing:-.025em;margin:0 0 18px}
   .sub{font-size:clamp(17px,2.4vw,21px);color:var(--muted);max-width:34em;margin:0 auto 32px}
   .cta{display:inline-block;background:var(--accent);color:#fff;font-weight:650;font-size:18px;
@@ -61,14 +63,18 @@
 
   @media (max-width:560px){ .checks{columns:1} header{padding:52px 0 40px} }
   @media (prefers-color-scheme:dark){
-    :root{--ink:#e8eef6;--muted:#94a3b8;--line:#24303f;--bg:#0b1220;--panel:#111a29;--accent:#6ea8ff;--accent-dark:#9cc4ff;--good:#4ade9a;--bad:#f87171}
-    .cta{color:#0b1220}
+    :root{--ink:#e8ebf0;--muted:#98A2B3;--line:#252c38;--bg:#0B0F16;--panel:#141922;--accent:#6A8DF0;--accent-dark:#9DB6F6;--good:#4fbf8f;--bad:#e5776b}
+    .cta{color:#0B0F16}
+    /* The lockup follows the page rather than staying black on a dark page. */
+    .bba-sig{--bba-mark:#C7CCD6;--bba-name:#FFFFFF;--bba-sub:#98A2B3}
   }
 </style>
 </head>
 <body>
 
 <div class="wrap">
+
+  <nav class="masthead">BRAND_SIGNATURE</nav>
 
   <header>
     <h1>Find out what your website is quietly costing you</h1>
