@@ -56,7 +56,10 @@ jobs:
       - name: Assert the place resolved to somewhere real
         run: |
           set -e
-          count=$(grep -vc '^#' out/prospects.txt || true)
+          # Non-comment, non-blank. `grep -vc '^#'` counted the blank
+          # separator line too, reporting 3 for a 2-prospect run — inflating
+          # the very number this check exists to police.
+          count=$(grep -v '^#' out/prospects.txt | grep -c '[^[:space:]]' || true)
           echo "found=$count"
           # A town with a trade in it has more than a couple. One or zero means
           # the name resolved to somewhere tiny or on the wrong continent —
