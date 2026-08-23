@@ -125,12 +125,33 @@ export function closing(
   host: string,
   compliance: ComplianceConfig = complianceConfig(),
 ): string[] {
+  // When the mail client appends a signature carrying the same identity and
+  // opt-out, repeating them here puts the address in the email twice. The
+  // provenance line stays either way: it is specific to this recipient, so a
+  // fixed signature cannot express it.
+  if (signatureInClient()) return [provenanceLine(host)];
+
   return [
     ...signOff(from),
     '',
     provenanceLine(host),
     ...complianceFooter(from, compliance),
   ];
+}
+
+/**
+ * Whether the mail client supplies the signature.
+ *
+ * Defaults to false, and deliberately so. If this were on by default, a draft
+ * would omit the footer for anyone who had not yet installed the signature —
+ * and the resulting email would be missing the two things it is legally
+ * required to carry, with nothing anywhere to indicate that.
+ *
+ * Wrong in the default direction costs a duplicated address. Wrong in the
+ * other direction costs a complaint.
+ */
+export function signatureInClient(): boolean {
+  return process.env.AUDIT_SIGNATURE_IN_CLIENT?.trim().toLowerCase() === 'true';
 }
 
 export function draftFirstEmail(audit: SiteAudit, options: DraftOptions = {}): EmailDraft | null {
