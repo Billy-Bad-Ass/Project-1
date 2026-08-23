@@ -1,0 +1,27 @@
+name = "bba-network"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# One namespace holds both the suppression list and the order ledger, keyed by
+# prefix (`sup:`, `order:`, `evt:`). Two namespaces would mean two ids to keep
+# straight for no isolation benefit — nothing outside this Worker reads it.
+#
+# Create it once, then paste the id it prints:
+#
+#   npx wrangler kv namespace create STORE
+#
+[[kv_namespaces]]
+binding = "STORE"
+id = "PASTE_KV_NAMESPACE_ID_HERE"
+
+# Not secrets: they appear in the pages a recipient sees anyway.
+[vars]
+SENDER_BUSINESS = "BBA Network"
+
+# Secrets are set with `wrangler secret put`, never written here — this file is
+# committed to a public repository.
+#
+#   npx wrangler secret put STRIPE_WEBHOOK_SECRET   # whsec_... from Stripe
+#   npx wrangler secret put UNSUBSCRIBE_SECRET      # any long random string
+#   npx wrangler secret put API_TOKEN               # bearer token for the pipeline
+#   npx wrangler secret put SENDER_EMAIL            # shown on the unsubscribe pages

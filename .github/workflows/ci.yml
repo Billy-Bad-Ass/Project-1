@@ -72,3 +72,43 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+  # Same reasoning as the audit job: its own package, its own lockfile, its own
+  # install. It also runs on a different runtime — Workers, not Node — so a
+  # dependency that only works under Node would pass here and fail on deploy.
+  # The tests deliberately use nothing outside what both runtimes provide.
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      # The Worker takes money and holds other people's opt-outs. A secret
+      # pasted into the committed config would be readable by anyone, since
+      # this repository is public.
+      - name: No secrets in wrangler.toml
+        run: |
+          # Matches a prefix followed by an actual secret body. Matching the
+          # bare prefix would fire on the file's own comment explaining which
+          # secrets to set, which is documentation, not a leak.
+          if grep -nE '(whsec_|sk_live_|sk_test_|rk_live_)[A-Za-z0-9]{16,}' wrangler.toml; then
+            echo "::error::A secret is committed in wrangler.toml. Use 'wrangler secret put'."
+            exit 1
+          fi
+          echo "wrangler.toml carries no secrets"

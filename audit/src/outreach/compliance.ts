@@ -100,12 +100,22 @@ export function complianceFooter(
   config: ComplianceConfig = complianceConfig(),
 ): string[] {
   const who = from.business || from.name || from.email;
-  const stop =
-    config.optOut.kind === 'url'
-      ? `To stop hearing from me, use this link: ${config.optOut.url}`
-      : config.optOut.instruction;
+  return ['—', `${who} · ${config.postalAddress}`, optOutLine(config.optOut)];
+}
 
-  return ['—', `${who} · ${config.postalAddress}`, stop];
+/**
+ * The one sentence telling somebody how to stop.
+ *
+ * Exported because it is needed in two places that render different amounts of
+ * footer: the full block below, and the case where the mail client supplies the
+ * signature but the opt-out is a per-recipient link the signature cannot carry.
+ * Two copies of this string would drift, and the one that drifted would be the
+ * one nobody reads until it is wrong.
+ */
+export function optOutLine(optOut: OptOutMethod): string {
+  return optOut.kind === 'url'
+    ? `To stop hearing from me, use this link: ${optOut.url}`
+    : optOut.instruction;
 }
 
 /**

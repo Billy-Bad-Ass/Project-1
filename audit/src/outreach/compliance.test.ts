@@ -215,3 +215,54 @@ test('with the signature in the client, the body drops the footer but never the 
     assert.match(draft.body, /listed publicly/i);
   });
 });
+
+test('a configured unsubscribe link replaces the reply instruction', async () => {
+  const { unsubscribeToken } = await import('./unsubscribe');
+  const finding: Finding = {
+    ruleId: 'https',
+    severity: 'critical',
+    category: 'trust',
+    title: 'No HTTPS',
+    detail: 'detail',
+    impact: 'impact',
+    fix: 'fix',
+  };
+  const audit: SiteAudit = {
+    url: 'https://acme.com/',
+    finalUrl: 'https://acme.com/',
+    fetchedAt: '2026-08-23T00:00:00.000Z',
+    error: null,
+    status: 200,
+    loadMs: 300,
+    findings: [finding],
+    passed: [],
+    healthScore: 40,
+    opportunityScore: 80,
+  };
+
+  const before = { ...process.env };
+  process.env['AUDIT_UNSUBSCRIBE_BASE'] = 'https://bba.example';
+  process.env['AUDIT_UNSUBSCRIBE_SECRET'] = 'secret';
+  try {
+    withEnv({ AUDIT_SIGNATURE_IN_CLIENT: 'false' }, () => {
+      const draft = draftFirstEmail(audit, { from, compliance });
+      assert.ok(draft);
+      const expected = `https://bba.example/u/acme.com/${unsubscribeToken('acme.com', 'secret')}`;
+      assert.match(draft.body, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+      // The generic instruction is replaced, not accompanied. Two opt-out
+      // routes in one email is one more than a reader will act on.
+      assert.doesNotMatch(draft.body, /Reply "stop"/);
+    });
+
+    // The link is per-recipient, so a fixed mail-client signature cannot carry
+    // it. Dropping it in this branch would silently downgrade every email back
+    // to reply-only.
+    withEnv({ AUDIT_SIGNATURE_IN_CLIENT: 'true' }, () => {
+      const draft = draftFirstEmail(audit, { from, compliance });
+      assert.ok(draft);
+      assert.match(draft.body, /bba\.example\/u\/acme\.com\//);
+    });
+  } finally {
+    process.env = before;
+  }
+});

@@ -39,10 +39,12 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
+  "//": "audit and worker are separate packages with their own tsconfig, deps and CI jobs. Without them listed here the root typecheck sweeps their source in without their types installed, which is how PR #9 went red. Any new sibling package belongs in this list.",
   "exclude": [
     "node_modules",
     "out",
     ".next",
-    "audit"
+    "audit",
+    "worker"
   ]
 }

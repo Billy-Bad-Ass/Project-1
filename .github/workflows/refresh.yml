@@ -156,6 +156,35 @@ jobs:
           grep -qF "$AUDIT_POSTAL_ADDRESS" out/audit/legal.html
           echo "audit site: $(du -sh out/audit | cut -f1)"
 
+      # Cloudflare Pages, in parallel with GitHub Pages rather than instead of
+      # it. Two publishes of the same directory costs nothing and means the
+      # domain cutover is a DNS change with a working site already behind it,
+      # not a migration performed live.
+      #
+      # Deployed from here rather than by Cloudflare's git integration because
+      # the build needs the payment link and postal address, and those are
+      # GitHub Actions secrets. Handing them to a second build system would
+      # mean two places to rotate them.
+      - name: Publish the audit site to Cloudflare Pages
+        if: steps.audit_site.outputs.built == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'bba-network' }}
+        run: |
+          set -e
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::warning::Cloudflare Pages skipped — CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID not set."
+            exit 0
+          fi
+          # Creating a project that already exists is an error, and it is the
+          # expected one on every run after the first. A genuine problem still
+          # surfaces: the deploy below is not tolerant of anything.
+          npx --yes wrangler@3 pages project create "$PROJECT" \
+            --production-branch main >/dev/null 2>&1 || true
+          npx --yes wrangler@3 pages deploy out/audit \
+            --project-name "$PROJECT" --branch main --commit-dirty=true
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
