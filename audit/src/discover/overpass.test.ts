@@ -4,6 +4,7 @@ import {
   buildAreaQuery,
   buildQuery,
   chooseArea,
+  normaliseEmail,
   discoverProspects,
   normaliseWebsite,
   parseAreas,
@@ -386,4 +387,20 @@ test('an unknown population never beats a known one', () => {
     lat: 0, lon: 0, population: null, describe: 'unknown',
   };
   assert.equal(chooseArea([unknown, known], 'US')?.id, known.id);
+});
+
+test('an email is taken from either tag and normalised', () => {
+  // OSM tags are typed by hand. A malformed address does not bounce — it is
+  // rejected by the API at send time, which fails the whole batch rather than
+  // skipping one recipient, so it is filtered here instead.
+  assert.equal(normaliseEmail('  Reception@Acme-Dental.COM '), 'reception@acme-dental.com');
+  assert.equal(normaliseEmail('mailto:hi@acme.com'), 'hi@acme.com');
+  assert.equal(normaliseEmail('one@acme.com;two@acme.com'), 'one@acme.com');
+  assert.equal(normaliseEmail('one@acme.com, two@acme.com'), 'one@acme.com');
+});
+
+test('anything that is not an address is dropped rather than passed on', () => {
+  for (const bad of [null, '', '   ', '703-555-0100', 'no-at-sign', 'a@b', 'a@@b.com', '@acme.com']) {
+    assert.equal(normaliseEmail(bad), null, `accepted: ${String(bad)}`);
+  }
 });

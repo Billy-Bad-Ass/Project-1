@@ -17,6 +17,14 @@ export interface Prospect {
   name: string;
   website: string;
   phone: string | null;
+  /**
+   * From OSM's own tags, where the business published one.
+   *
+   * Not always present, and that is the point of collecting it: the businesses
+   * that publish an email are the ones that can be contacted without a human
+   * hunting through a contact page. The rest still need finding by hand.
+   */
+  email: string | null;
   street: string | null;
   town: string | null;
   postcode: string | null;
@@ -222,6 +230,22 @@ ${filters}
 out center ${limit};`;
 }
 
+/**
+ * An address only if it plausibly is one.
+ *
+ * OSM tags are typed by hand and this field arrives with `mailto:` prefixes,
+ * two addresses separated by a semicolon, and occasionally a phone number.
+ * A malformed address does not bounce — it is rejected by the API at send
+ * time, which fails the whole batch rather than skipping one recipient.
+ */
+export function normaliseEmail(value: string | null): string | null {
+  if (!value) return null;
+  const first = value.split(/[;,]/)[0] ?? '';
+  const cleaned = first.trim().replace(/^mailto:/i, '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleaned)) return null;
+  return cleaned.toLowerCase();
+}
+
 function firstString(tags: Record<string, unknown>, ...keys: string[]): string | null {
   for (const key of keys) {
     const value = tags[key];
@@ -325,6 +349,7 @@ export function parseElements(raw: unknown): Prospect[] {
       name,
       website,
       phone: firstString(tags, 'phone', 'contact:phone'),
+      email: normaliseEmail(firstString(tags, 'email', 'contact:email')),
       street: firstString(tags, 'addr:street'),
       town: firstString(tags, 'addr:city', 'addr:town'),
       postcode: firstString(tags, 'addr:postcode'),

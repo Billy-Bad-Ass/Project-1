@@ -75,8 +75,10 @@ test('business names come from the matching prospect, not a same-host neighbour'
     snapshot({
       audits: [audit('http://host.test/'), audit('http://host.test/two')],
       prospects: [
-        { name: 'First Ltd', website: 'http://host.test/', phone: null, street: null, town: null, postcode: null, osmId: 'node/1' },
-        { name: 'Second Ltd', website: 'http://host.test/two', phone: null, street: null, town: null, postcode: null, osmId: 'node/2' },
+        { name: 'First Ltd', website: 'http://host.test/', phone: null,
+        email: null, street: null, town: null, postcode: null, osmId: 'node/1' },
+        { name: 'Second Ltd', website: 'http://host.test/two', phone: null,
+        email: null, street: null, town: null, postcode: null, osmId: 'node/2' },
       ],
     }),
   );
