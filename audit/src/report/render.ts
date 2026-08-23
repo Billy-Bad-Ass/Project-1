@@ -2,6 +2,7 @@ import { countBySeverity } from '../lib/audit';
 import { ALL_RULES } from '../rules/index';
 import type { Finding, Severity, SiteAudit } from '../lib/types';
 import { sender, type SenderConfig } from './config';
+import { BRAND_INK, BRAND_SIGNATURE_CSS, brandMark } from './brand';
 
 /**
  * Renders one audit as a self-contained HTML page.
@@ -151,7 +152,7 @@ export function renderReport(audit: SiteAudit, from: SenderConfig = sender): str
 <style>
   :root {
     --accent: ${escapeHtml(from.accent)};
-    --ink: #111827;
+    --ink: ${BRAND_INK};
     --muted: #6b7280;
     --line: #e5e7eb;
     --bg: #ffffff;
@@ -161,6 +162,7 @@ export function renderReport(audit: SiteAudit, from: SenderConfig = sender): str
     --medium: #a16207;
     --low: #4b5563;
   }
+  ${BRAND_SIGNATURE_CSS}
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -171,7 +173,9 @@ export function renderReport(audit: SiteAudit, from: SenderConfig = sender): str
   .sheet { max-width: 820px; margin: 0 auto; background: var(--bg); }
   .pad { padding: 0 48px; }
 
-  header.cover { background: var(--ink); color: #fff; padding: 44px 48px 38px; }
+  header.cover { background: var(--ink); color: #fff; padding: 34px 48px 38px; }
+  header.cover .mark { margin: 0 0 22px; }
+  header.cover .mark svg { display: block; }
   header.cover .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: 11px; color: #9ca3af; margin: 0 0 10px; }
   header.cover h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.15; letter-spacing: -.02em; }
   header.cover .site { color: var(--accent); font-weight: 600; }
@@ -242,6 +246,8 @@ export function renderReport(audit: SiteAudit, from: SenderConfig = sender): str
     .pad, header.cover, .summary, .passed, .next, footer.fine { padding-left: 0; padding-right: 0; }
     header.cover { background: #fff; color: var(--ink); border-bottom: 3px solid var(--ink); }
     header.cover .meta, header.cover .eyebrow { color: var(--muted); }
+    /* The cover turns white for print, so the mark has to darken with it. */
+    header.cover .mark { --bba-mark: ${BRAND_INK}; }
   }
   @media (max-width: 640px) {
     .pad, header.cover, .summary, section.group, .passed, .next, footer.fine { padding-left: 20px; padding-right: 20px; }
@@ -253,6 +259,7 @@ export function renderReport(audit: SiteAudit, from: SenderConfig = sender): str
 <div class="sheet">
 
   <header class="cover">
+    <div class="mark">${brandMark(26, 'dark')}</div>
     <p class="eyebrow">Website review</p>
     <h1><span class="site">${escapeHtml(host)}</span></h1>
     <p class="meta">Prepared by ${escapeHtml(from.business)} · ${escapeHtml(date)}</p>

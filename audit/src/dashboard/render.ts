@@ -1,4 +1,5 @@
 import { funnel, type Row, type Snapshot } from './collect';
+import { BRAND_SIGNATURE_CSS, brandSignature } from '../report/brand';
 
 /**
  * Renders the pipeline as a single self-contained page.
@@ -81,14 +82,21 @@ export function renderDashboard(
 <title>Pipeline</title>
 <style>
   :root{
-    --bg:#f4f6f2; --card:#fff; --ink:#1a2027; --soft:#5a6670;
-    --rule:#dde2d9; --rule-soft:#eaeee7;
-    --accent:#0e7c66; --warn:#a8541b; --crit:#b0322a; --good:#0e7c66;
+    --bg:#f5f6f8; --card:#fff; --ink:#12161F; --soft:#5A6472;
+    --rule:#dfe3ea; --rule-soft:#edf0f4;
+    --accent:#2B5CE6; --warn:#a8541b; --crit:#b0322a; --good:#0f7a52;
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
   @media (prefers-color-scheme:dark){
-    :root{--bg:#12171b;--card:#191f25;--ink:#e6eae6;--soft:#95a0a0;
-          --rule:#2b343a;--rule-soft:#222a30;--accent:#4fbfa2;--warn:#d98a4a;--crit:#e5776b;--good:#4fbfa2}
+    :root{--bg:#0B0F16;--card:#141922;--ink:#e8ebf0;--soft:#98A2B3;
+          --rule:#252c38;--rule-soft:#1c222c;--accent:#6A8DF0;--warn:#d98a4a;--crit:#e5776b;--good:#4fbf8f}
+  }
+  ${BRAND_SIGNATURE_CSS}
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand h1{padding-left:14px;border-left:1px solid var(--rule)}
+  /* The lockup follows the page theme rather than staying black on a dark page. */
+  @media (prefers-color-scheme:dark){
+    .bba-sig{--bba-mark:#C7CCD6;--bba-name:#FFFFFF;--bba-sub:#98A2B3}
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
@@ -166,7 +174,7 @@ export function renderDashboard(
   }
 
   <header>
-    <h1>Pipeline</h1>
+    <div class="brand">${brandSignature()}<h1>Pipeline</h1></div>
     <span class="stamp">${escapeHtml(new Date(snapshot.generatedAt).toLocaleString('en-GB'))}</span>
   </header>
 

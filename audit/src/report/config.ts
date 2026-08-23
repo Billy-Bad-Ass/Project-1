@@ -1,4 +1,5 @@
 import { loadEnv } from '../lib/env';
+import { BRAND_ACCENT } from './brand';
 
 // Pick up .env.local before any value below is read.
 loadEnv();
@@ -26,5 +27,5 @@ export const sender: SenderConfig = {
   offer:
     process.env.AUDIT_SENDER_OFFER?.trim() ||
     'I fix these issues for small businesses. Happy to walk you through this report free of charge, whether or not you hire me.',
-  accent: process.env.AUDIT_ACCENT?.trim() || '#2563eb',
+  accent: process.env.AUDIT_ACCENT?.trim() || BRAND_ACCENT,
 };
