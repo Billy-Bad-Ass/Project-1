@@ -3,6 +3,7 @@ import { ALL_RULES } from '../rules/index';
 import type { Finding, Severity, SiteAudit } from '../lib/types';
 import { sender, type SenderConfig } from './config';
 import { BRAND_INK, BRAND_SIGNATURE_CSS, brandMark } from './brand';
+import { formatDate, locale } from '../lib/locale';
 
 /**
  * Renders one audit as a self-contained HTML page.
@@ -62,7 +63,7 @@ function hostOf(url: string): string {
 function verdict(audit: SiteAudit): string {
   const counts = countBySeverity(audit.findings);
   if (counts.critical > 0) {
-    return `We found ${counts.critical} issue${counts.critical === 1 ? '' : 's'} that ${counts.critical === 1 ? 'is' : 'are'} actively costing you enquiries, plus ${audit.findings.length - counts.critical} smaller ones.`;
+    return `We found ${counts.critical} issue${counts.critical === 1 ? '' : 's'} that ${counts.critical === 1 ? 'is' : 'are'} actively costing you inquiries, plus ${audit.findings.length - counts.critical} smaller ones.`;
   }
   if (counts.high > 0) {
     return `Nothing is badly broken, but ${counts.high} issue${counts.high === 1 ? '' : 's'} ${counts.high === 1 ? 'is' : 'are'} holding the site back from doing its job properly.`;
@@ -116,11 +117,7 @@ function findingCard(finding: Finding, index: number): string {
 export function renderReport(audit: SiteAudit, from: SenderConfig = sender): string {
   const host = hostOf(audit.finalUrl);
   const counts = countBySeverity(audit.findings);
-  const date = new Date(audit.fetchedAt).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const date = formatDate(audit.fetchedAt);
 
   const bySeverity: Severity[] = ['critical', 'high', 'medium', 'low'];
   let counter = 0;
@@ -144,7 +141,7 @@ export function renderReport(audit: SiteAudit, from: SenderConfig = sender): str
   const passedRules = ALL_RULES.filter((r) => audit.passed.includes(r.id));
 
   return `<!doctype html>
-<html lang="en-GB">
+<html lang="${locale()}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -102,7 +102,7 @@ export const formLabels: Rule = {
           ruleId: 'form-labels',
           severity: 'medium',
           category: 'accessibility',
-          title: 'Form fields are unlabelled',
+          title: 'Form fields are unlabeled',
           detail: `${unlabelled.length} of ${inputs.length} form fields have no associated label.`,
           impact:
             'A screen reader announces these as just "edit text", so the visitor cannot tell which box wants their email and which wants their phone number. Placeholder text alone disappears as soon as they start typing, which affects everyone.',

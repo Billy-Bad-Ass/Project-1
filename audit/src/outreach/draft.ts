@@ -1,6 +1,12 @@
 import { countBySeverity } from '../lib/audit';
 import type { Finding, SiteAudit } from '../lib/types';
 import { sender, type SenderConfig } from '../report/config';
+import {
+  complianceConfig,
+  complianceFooter,
+  provenanceLine,
+  type ComplianceConfig,
+} from './compliance';
 
 /**
  * Drafts outreach email from a site's real findings.
@@ -26,6 +32,11 @@ export interface EmailDraft {
 
 export interface DraftOptions {
   from?: SenderConfig;
+  /**
+   * Injectable so tests need no environment. Omitted in production, where
+   * the real settings are read and their absence is a hard failure.
+   */
+  compliance?: ComplianceConfig;
   /** Their name if you know it. Without it the greeting stays neutral. */
   contactName?: string | null;
   email?: string | null;
@@ -91,8 +102,6 @@ function signalSentence(finding: Finding, host: string): string {
  * so this drops the line rather than leaving a blank one, and never prints the
  * same identity twice when the two happen to match.
  *
- * This is also where the sender identity and opt-out will live. Neither exists
- * yet, and no email should go to a stranger until they do.
  */
 export function signOff(from: SenderConfig): string[] {
   const lines: string[] = [];
@@ -100,6 +109,28 @@ export function signOff(from: SenderConfig): string[] {
   if (from.business && from.business !== from.name) lines.push(from.business);
   lines.push(from.email);
   return lines;
+}
+
+/**
+ * Everything below the last sentence: who sent this, why they have your
+ * address, and how to make it stop.
+ *
+ * Resolving the compliance settings here rather than at send time is
+ * deliberate. An email that cannot lawfully be sent should never come into
+ * existence as a draft, because a draft that exists is a draft somebody
+ * eventually sends.
+ */
+export function closing(
+  from: SenderConfig,
+  host: string,
+  compliance: ComplianceConfig = complianceConfig(),
+): string[] {
+  return [
+    ...signOff(from),
+    '',
+    provenanceLine(host),
+    ...complianceFooter(from, compliance),
+  ];
 }
 
 export function draftFirstEmail(audit: SiteAudit, options: DraftOptions = {}): EmailDraft | null {
@@ -132,9 +163,9 @@ export function draftFirstEmail(audit: SiteAudit, options: DraftOptions = {}): E
     '',
     "There's nothing to buy here. If it's useful, use it — your own developer can action the whole list. If you'd rather someone just did it, that's what I do, and I'm happy to talk.",
     '',
-    'Either way, no follow-up sales pitch from me.',
+    "Either way, I'll send one short follow-up and then leave you alone.",
     '',
-    ...signOff(from),
+    ...closing(from, host, options.compliance),
   ].join('\n');
 
   return { to: options.email ?? null, subject, body, signal: signal.ruleId, step: 1 };
@@ -179,7 +210,7 @@ export function draftFollowUp(audit: SiteAudit, options: DraftOptions = {}): Ema
     '',
     "Worth a look whether or not you want anything from me; the fixes are all written out. If it's not relevant, no problem at all and I won't chase it again.",
     '',
-    ...signOff(from),
+    ...closing(from, host, options.compliance),
   ].join('\n');
 
   return {

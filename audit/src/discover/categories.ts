@@ -13,6 +13,13 @@ export interface Category {
   label: string;
   /** OSM tag filters; any match qualifies. */
   tags: string[];
+  /**
+   * Other names for the same trade, so the tool answers to what the operator
+   * actually calls it. The same business is a solicitor in the UK and a lawyer
+   * in the US, and OSM tags it `office=lawyer` either way — the tag is shared,
+   * only the word is not.
+   */
+  aliases?: string[];
 }
 
 export const CATEGORIES: Category[] = [
@@ -21,7 +28,8 @@ export const CATEGORIES: Category[] = [
   { id: 'electrician', label: 'Electricians', tags: ['craft=electrician'] },
   { id: 'builder', label: 'Builders', tags: ['craft=builder', 'craft=bricklayer'] },
   { id: 'roofer', label: 'Roofers', tags: ['craft=roofer'] },
-  { id: 'carpenter', label: 'Carpenters and joiners', tags: ['craft=carpenter', 'craft=joiner'] },
+  { id: 'carpenter', label: 'Carpenters and joiners', tags: ['craft=carpenter', 'craft=joiner'],
+    aliases: ['joiner', 'joiners', 'woodworker'] },
   { id: 'painter', label: 'Painters and decorators', tags: ['craft=painter'] },
   { id: 'locksmith', label: 'Locksmiths', tags: ['craft=locksmith', 'shop=locksmith'] },
   { id: 'gardener', label: 'Gardeners and landscapers', tags: ['craft=gardener', 'shop=garden_centre'] },
@@ -37,11 +45,14 @@ export const CATEGORIES: Category[] = [
   { id: 'pharmacy', label: 'Pharmacies', tags: ['amenity=pharmacy'] },
 
   // Professional services — high value per client.
-  { id: 'solicitor', label: 'Solicitors', tags: ['office=lawyer'] },
+  { id: 'solicitor', label: 'Solicitors', tags: ['office=lawyer'],
+    aliases: ['lawyer', 'lawyers', 'attorney', 'attorneys', 'law firm', 'law firms'] },
   { id: 'accountant', label: 'Accountants', tags: ['office=accountant'] },
-  { id: 'estate-agent', label: 'Estate agents', tags: ['office=estate_agent'] },
+  { id: 'estate-agent', label: 'Estate agents', tags: ['office=estate_agent'],
+    aliases: ['realtor', 'realtors', 'real estate', 'real estate agent', 'real estate agents'] },
   { id: 'insurance', label: 'Insurance brokers', tags: ['office=insurance'] },
-  { id: 'financial-adviser', label: 'Financial advisers', tags: ['office=financial_advisor', 'office=financial'] },
+  { id: 'financial-adviser', label: 'Financial advisers', tags: ['office=financial_advisor', 'office=financial'],
+    aliases: ['financial advisor', 'financial advisors'] },
   { id: 'architect', label: 'Architects', tags: ['office=architect'] },
 
   // Consumer businesses — smaller budgets, but volume and quick decisions.
@@ -70,6 +81,7 @@ export function findCategory(id: string): Category | null {
   return (
     CATEGORIES.find((c) => c.id === key) ??
     CATEGORIES.find((c) => c.label.toLowerCase() === key) ??
+    CATEGORIES.find((c) => c.aliases?.includes(key)) ??
     // Tolerate plurals and near-misses: "dentists" should find "dentist".
     CATEGORIES.find((c) => c.id === key.replace(/s$/, '')) ??
     CATEGORIES.find((c) => c.label.toLowerCase().includes(key)) ??

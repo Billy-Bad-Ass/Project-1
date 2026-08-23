@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { draftFirstEmail, draftFollowUp, signalSpread, type EmailDraft } from '../outreach/draft';
 import { reportSlug } from '../lib/slug';
 import type { SiteAudit } from '../lib/types';
+import { complianceConfig, MissingComplianceConfig } from '../outreach/compliance';
+import { loadSuppressed, partitionSuppressed } from '../outreach/suppression';
 
 /**
  * Write an outreach draft for every audited site.
@@ -52,6 +54,36 @@ async function main(): Promise<void> {
   }
 
   const dir = join(OUT, args.followUp ? 'emails-followup' : 'emails');
+  // Resolved once, before anything is written. Missing settings stop the whole
+  // run with one clear message rather than throwing on the first audit.
+  let compliance;
+  try {
+    compliance = complianceConfig();
+  } catch (error) {
+    if (error instanceof MissingComplianceConfig) {
+      process.stderr.write(`${error.message}\n`);
+      process.exitCode = 1;
+      return;
+    }
+    throw error;
+  }
+
+  // Checked before drafting, not before sending. A draft that should not exist
+  // is a draft somebody eventually sends by accident.
+  const suppressed = await loadSuppressed();
+  const { allowed, blocked } = partitionSuppressed(
+    eligible,
+    (a: SiteAudit) => a.finalUrl,
+    suppressed,
+  );
+  if (blocked.length > 0) {
+    log(`Skipped ${blocked.length} suppressed business(es):`);
+    for (const { item, entry } of blocked) {
+      log(`  ${entry.key} — ${entry.reason}`);
+    }
+    log('');
+  }
+
   await mkdir(dir, { recursive: true });
 
   const drafts: EmailDraft[] = [];
@@ -62,8 +94,10 @@ async function main(): Promise<void> {
     '',
   ];
 
-  for (const audit of eligible) {
-    const draft = args.followUp ? draftFollowUp(audit) : draftFirstEmail(audit);
+  for (const audit of allowed) {
+    const draft = args.followUp
+      ? draftFollowUp(audit, { compliance })
+      : draftFirstEmail(audit, { compliance });
     if (!draft) continue;
     drafts.push(draft);
 
