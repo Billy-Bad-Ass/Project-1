@@ -84,6 +84,24 @@ function signalSentence(finding: Finding, host: string): string {
   }
 }
 
+/**
+ * The lines that close an email.
+ *
+ * The personal name is optional — a business can trade under its name alone —
+ * so this drops the line rather than leaving a blank one, and never prints the
+ * same identity twice when the two happen to match.
+ *
+ * This is also where the sender identity and opt-out will live. Neither exists
+ * yet, and no email should go to a stranger until they do.
+ */
+export function signOff(from: SenderConfig): string[] {
+  const lines: string[] = [];
+  if (from.name) lines.push(from.name);
+  if (from.business && from.business !== from.name) lines.push(from.business);
+  lines.push(from.email);
+  return lines;
+}
+
 export function draftFirstEmail(audit: SiteAudit, options: DraftOptions = {}): EmailDraft | null {
   const from = options.from ?? sender;
   const host = hostOf(audit.finalUrl);
@@ -116,9 +134,7 @@ export function draftFirstEmail(audit: SiteAudit, options: DraftOptions = {}): E
     '',
     'Either way, no follow-up sales pitch from me.',
     '',
-    from.name,
-    from.business,
-    from.email,
+    ...signOff(from),
   ].join('\n');
 
   return { to: options.email ?? null, subject, body, signal: signal.ruleId, step: 1 };
@@ -163,8 +179,7 @@ export function draftFollowUp(audit: SiteAudit, options: DraftOptions = {}): Ema
     '',
     "Worth a look whether or not you want anything from me; the fixes are all written out. If it's not relevant, no problem at all and I won't chase it again.",
     '',
-    from.name,
-    from.email,
+    ...signOff(from),
   ].join('\n');
 
   return {

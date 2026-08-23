@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   await writeFile(file, renderDashboard(snapshot, table), 'utf8');
 
   log(`found ${f.found} · audited ${f.audited} · worth contacting ${f.worthContacting}`);
-  log(`emailed ${f.contacted} · replied ${f.replied} · paying ${f.clients} · earned £${f.revenue}`);
+  log(`emailed ${f.contacted} · replied ${f.replied} · paying ${f.clients} · earned ${f.revenue}`);
 
   const waiting = table.filter((r) => r.stage === 'replied');
   if (waiting.length > 0) {

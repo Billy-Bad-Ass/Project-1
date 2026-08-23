@@ -27,8 +27,27 @@ const STAGE_LABEL: Record<Row['stage'], string> = {
   closed: 'Closed',
 };
 
+/**
+ * Formats an amount in the currency the business actually sells in.
+ *
+ * This was hardcoded to pounds, which silently mislabelled every figure the
+ * moment the product was priced in dollars — the number stayed right and the
+ * symbol lied, which is the worst version of that bug because nothing looks
+ * broken. `Intl` gets the symbol, the separators and the placement right for
+ * whatever `AUDIT_CURRENCY` is set to.
+ */
 function money(amount: number): string {
-  return `£${amount.toLocaleString('en-GB')}`;
+  const currency = process.env.AUDIT_CURRENCY?.trim().toUpperCase() || 'USD';
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    // An unknown or malformed code must not take the whole dashboard down.
+    return `${currency} ${amount.toLocaleString()}`;
+  }
 }
 
 function funnelBar(label: string, value: number, of: number, tone: string): string {

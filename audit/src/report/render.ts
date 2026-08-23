@@ -298,8 +298,8 @@ export function renderReport(audit: SiteAudit, from: SenderConfig = sender): str
     <p>${escapeHtml(nextStep(audit))}</p>
     <p>${escapeHtml(from.offer)}</p>
     <div class="from">
-      <strong>${escapeHtml(from.name)}</strong>
-      ${escapeHtml(from.business)}<br>
+      <strong>${escapeHtml(from.name ?? from.business)}</strong>
+      ${from.name ? `${escapeHtml(from.business)}<br>` : ''}
       <a href="mailto:${escapeHtml(from.email)}">${escapeHtml(from.email)}</a>${
         from.phone ? ` · <a href="tel:${escapeHtml(from.phone.replace(/\s/g, ''))}">${escapeHtml(from.phone)}</a>` : ''
       }${from.website ? `<br><a href="${escapeHtml(from.website)}">${escapeHtml(from.website)}</a>` : ''}

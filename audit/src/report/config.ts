@@ -7,7 +7,12 @@ loadEnv();
 /** Who the report is from. Edit this once; it brands every audit you send. */
 
 export interface SenderConfig {
-  name: string;
+  /**
+   * The person signing the report. Optional: a business can trade under its
+   * name alone. There is deliberately no default — a placeholder here would be
+   * printed on a document sent to a stranger.
+   */
+  name?: string;
   business: string;
   email: string;
   phone?: string;
@@ -19,7 +24,7 @@ export interface SenderConfig {
 }
 
 export const sender: SenderConfig = {
-  name: process.env.AUDIT_SENDER_NAME?.trim() || 'Your Name',
+  name: process.env.AUDIT_SENDER_NAME?.trim() || undefined,
   business: process.env.AUDIT_SENDER_BUSINESS?.trim() || 'Your Business',
   email: process.env.AUDIT_SENDER_EMAIL?.trim() || 'you@example.com',
   phone: process.env.AUDIT_SENDER_PHONE?.trim() || undefined,
