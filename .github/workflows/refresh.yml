@@ -118,10 +118,10 @@ jobs:
           AUDIT_SENDER_EMAIL: ${{ secrets.AUDIT_SENDER_EMAIL }}
           AUDIT_OPT_OUT_REPLY: 'Reply "stop" to this email and I will never contact you again.'
           AUDIT_LOCALE: en-US
-          # A repo variable, not a secret: the domain is on every page anyway.
-          # Unset until one exists, and the build then omits the canonical,
-          # Open Graph and sitemap output rather than pointing them at nothing.
-          SITE_ORIGIN: ${{ vars.AUDIT_SITE_ORIGIN }}
+          # The domain is on every page, so it is a default here rather than a
+          # secret or a setting somebody has to remember to add. The repo
+          # variable stays as an override for a staging host.
+          SITE_ORIGIN: ${{ vars.AUDIT_SITE_ORIGIN || 'https://bbanetwork.org' }}
         run: |
           set -e
           missing=""

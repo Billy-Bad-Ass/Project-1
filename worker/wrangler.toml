@@ -14,6 +14,16 @@ compatibility_date = "2025-01-01"
 binding = "STORE"
 id = "PASTE_KV_NAMESPACE_ID_HERE"
 
+# A subdomain rather than a path on the apex, because Pages serves the apex
+# and two things cannot own one hostname. Unsubscribe links therefore read
+# api.bbanetwork.org/u/... — still the brand's own domain, which is what
+# matters to a recipient deciding whether the link is safe to click.
+#
+# custom_domain = true makes wrangler create the DNS record on deploy.
+[[routes]]
+pattern = "api.bbanetwork.org"
+custom_domain = true
+
 # Not secrets: they appear in the pages a recipient sees anyway.
 [vars]
 SENDER_BUSINESS = "BBA Network"
