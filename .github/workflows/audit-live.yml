@@ -8,8 +8,20 @@ name: Audit live sites
 on:
   workflow_dispatch:
     inputs:
+      what:
+        description: 'Trade to look for'
+        default: 'dentist'
+      where:
+        description: 'Town or city'
+        default: 'Fairfax'
+      country:
+        description: 'ISO country code, to disambiguate the place name'
+        default: 'US'
+      limit:
+        description: 'Maximum prospects'
+        default: '40'
       list:
-        description: 'Prospect list file'
+        description: 'Prospect list file (audit job only)'
         default: 'prospects.example.txt'
       concurrency:
         description: 'Sites in flight at once'
@@ -34,31 +46,41 @@ jobs:
       - run: npm ci
 
       - name: Find real businesses
-        run: npm run find -- --what dentist --where Bristol --country GB --limit 25
+        run: |
+          npm run find -- \
+            --what "${{ github.event.inputs.what || 'dentist' }}" \
+            --where "${{ github.event.inputs.where || 'Fairfax' }}" \
+            --country "${{ github.event.inputs.country || 'US' }}" \
+            --limit "${{ github.event.inputs.limit || '40' }}"
 
-      - name: Assert we found a real city's worth of businesses
+      - name: Assert the place resolved to somewhere real
         run: |
           set -e
           count=$(grep -vc '^#' out/prospects.txt || true)
           echo "found=$count"
-          # Bristol UK has many dentists. A single result means the area
-          # resolved to somewhere small or on the wrong continent, which is
-          # exactly the bug this assertion exists to catch.
-          if [ "$count" -lt 5 ]; then
+          # A town with a trade in it has more than a couple. One or zero means
+          # the name resolved to somewhere tiny or on the wrong continent —
+          # exactly the Bristol-to-Tennessee bug this assertion exists to catch.
+          if [ "$count" -lt 3 ]; then
             echo "Only $count prospects — the area probably resolved wrongly"
             exit 1
           fi
 
+      - name: Show exactly who was found
+        run: |
+          echo '--- prospects.txt ---'
+          cat out/prospects.txt
+          echo
+          echo '--- prospects.csv ---'
+          cat out/prospects.csv 2>/dev/null || echo '(none)'
+
       - name: Audit what was found
         run: npm run audit -- --list out/prospects.txt --concurrency 2
 
-      - name: Draft outreach for them
-        run: npm run draft -- --min-opportunity 40
-
-      - name: Show a draft
-        run: |
-          first=$(ls out/emails/*.txt 2>/dev/null | head -1)
-          if [ -n "$first" ]; then echo "--- $first ---"; cat "$first"; fi
+      # Deliberately no drafting here. Drafts carry a real postal address and
+      # opt-out, and those belong in a gitignored .env.local rather than in a
+      # public repository's Actions logs. Discovery and auditing are the parts
+      # that need the live network; drafting runs locally afterwards.
 
       - name: Show the outreach list
         run: head -60 out/leads.md
@@ -67,9 +89,11 @@ jobs:
         with:
           name: discovery-run
           path: |
+            audit/out/prospects.txt
             audit/out/prospects.csv
+            audit/out/prospects.json
             audit/out/leads.md
-            audit/out/emails/
+            audit/out/audits.json
             audit/out/reports/
           retention-days: 14
 
