@@ -20,6 +20,9 @@ on:
       limit:
         description: 'Maximum prospects'
         default: '40'
+      top:
+        description: 'How many audits to export for local drafting'
+        default: '15'
       list:
         description: 'Prospect list file (audit job only)'
         default: 'prospects.example.txt'
@@ -87,6 +90,28 @@ jobs:
 
       - name: Show the outreach list
         run: head -60 out/leads.md
+
+      # Drafting happens locally, because a draft carries a real postal address
+      # and this repository is public. But the audits it needs can only be
+      # produced here, where the network is reachable. This step is the bridge:
+      # the top N audits, compressed and base64'd so they survive a log.
+      - name: Export top audits for local drafting
+        run: |
+          node -e "
+            const fs = require('fs');
+            const all = JSON.parse(fs.readFileSync('out/audits.json', 'utf8'));
+            const top = all
+              .filter(a => !a.error)
+              .sort((a, b) => b.opportunityScore - a.opportunityScore)
+              .slice(0, Number(process.env.TOP || 15));
+            fs.writeFileSync('out/audits-top.json', JSON.stringify(top));
+            console.error('exported ' + top.length + ' of ' + all.length);
+          "
+          echo '===AUDITS_B64_BEGIN==='
+          gzip -9 -c out/audits-top.json | base64 -w 200
+          echo '===AUDITS_B64_END==='
+        env:
+          TOP: ${{ github.event.inputs.top || '15' }}
 
       - uses: actions/upload-artifact@v5
         with:
