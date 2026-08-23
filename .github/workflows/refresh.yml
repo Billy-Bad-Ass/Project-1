@@ -120,8 +120,17 @@ jobs:
           AUDIT_LOCALE: en-US
         run: |
           set -e
-          if [ -z "$STRIPE_PAYMENT_LINK" ] || [ -z "$AUDIT_POSTAL_ADDRESS" ]; then
-            echo "::warning::Audit site skipped — STRIPE_PAYMENT_LINK or AUDIT_POSTAL_ADDRESS not set."
+          missing=""
+          for name in STRIPE_PAYMENT_LINK PRICE_DISPLAY AUDIT_POSTAL_ADDRESS AUDIT_SENDER_EMAIL; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          # AUDIT_SENDER_EMAIL is in this list even though build:web treats it
+          # as optional. Optional means the page builds without it; it does not
+          # mean the page is fit to publish. Absent, the contact section of the
+          # policy page renders as a blank name and an empty mailto: — a page
+          # that takes money with no way to reach the seller.
+          if [ -n "$missing" ]; then
+            echo "::warning::Audit site skipped — secrets not set:$missing"
             echo "built=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -134,12 +143,17 @@ jobs:
 
       - name: Confirm the audit site published something real
         if: steps.audit_site.outputs.built == 'true'
+        env:
+          AUDIT_POSTAL_ADDRESS: ${{ secrets.AUDIT_POSTAL_ADDRESS }}
         run: |
           set -e
           test -f out/audit/index.html
           test -f out/audit/legal.html
           # A dead buy button is the failure this whole build guards against.
           grep -q 'buy.stripe.com' out/audit/index.html
+          # And the two things a buyer needs in order to chase us afterwards.
+          grep -qE 'mailto:[^"]+@[^"]+' out/audit/legal.html
+          grep -qF "$AUDIT_POSTAL_ADDRESS" out/audit/legal.html
           echo "audit site: $(du -sh out/audit | cut -f1)"
 
       - uses: actions/upload-pages-artifact@v3
