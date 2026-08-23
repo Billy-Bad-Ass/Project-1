@@ -118,10 +118,11 @@ jobs:
           AUDIT_SENDER_EMAIL: ${{ secrets.AUDIT_SENDER_EMAIL }}
           AUDIT_OPT_OUT_REPLY: 'Reply "stop" to this email and I will never contact you again.'
           AUDIT_LOCALE: en-US
-          # The domain is on every page, so it is a default here rather than a
-          # secret or a setting somebody has to remember to add. The repo
-          # variable stays as an override for a staging host.
-          SITE_ORIGIN: ${{ vars.AUDIT_SITE_ORIGIN || 'https://bbanetwork.org' }}
+          # A subdomain, not the apex. bbanetwork.org serves a different
+          # business — the printable-guides storefront — and pointing this
+          # site's canonical URL there invited search engines to treat two
+          # unrelated businesses as one page. It did, briefly, until this.
+          SITE_ORIGIN: ${{ vars.AUDIT_SITE_ORIGIN || 'https://audit.bbanetwork.org' }}
         run: |
           set -e
           missing=""

@@ -89,6 +89,17 @@ export async function verifyStripeSignature(
 }
 
 export interface StripeOrder {
+  /**
+   * Whether this sale was confirmed to be the audit product.
+   *
+   * False means no product filter was configured, so the order was recorded
+   * without knowing what was bought. That matters because a Stripe account
+   * can carry more than one business, and `checkout.session.completed` fires
+   * for all of them — this very account also serves a printable-guides
+   * storefront. Fulfilment must refuse to act on an unmatched order rather
+   * than send somebody a website audit they did not buy.
+   */
+  matchedProduct: boolean;
   eventId: string;
   sessionId: string;
   email: string | null;
@@ -120,12 +131,21 @@ function str(value: unknown): string | null {
  * reads as "endpoint down" and retries — turning one malformed event into a
  * repeating one.
  */
-export function orderFromEvent(event: unknown): StripeOrder | null {
+export function orderFromEvent(
+  event: unknown,
+  expectedPaymentLink?: string,
+): StripeOrder | null {
   const shape = event as StripeEventShape;
   if (str(shape?.type) !== 'checkout.session.completed') return null;
 
   const session = shape.data?.object;
   if (!session || typeof session !== 'object') return null;
+
+  // Another product on the same Stripe account. Not an error and not ours —
+  // acknowledged by the caller and dropped here.
+  const link = str(session['payment_link']);
+  const expected = expectedPaymentLink?.trim();
+  if (expected && link !== expected) return null;
 
   const eventId = str(shape.id);
   const sessionId = str(session['id']);
@@ -142,6 +162,7 @@ export function orderFromEvent(event: unknown): StripeOrder | null {
   const created = shape.created;
 
   return {
+    matchedProduct: Boolean(expected) && link === expected,
     eventId,
     sessionId,
     email,

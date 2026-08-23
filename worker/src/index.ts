@@ -19,6 +19,14 @@ export interface Env {
   UNSUBSCRIBE_SECRET: string;
   /** Bearer token the pipeline uses to read and write the suppression list. */
   API_TOKEN: string;
+  /**
+   * The audit product's Payment Link id (`plink_...`).
+   *
+   * Required whenever the Stripe account sells anything else, which this one
+   * does. Without it every sale on the account is recorded here as an audit
+   * order.
+   */
+  AUDIT_PAYMENT_LINK_ID?: string;
   SENDER_BUSINESS?: string;
   SENDER_EMAIL?: string;
 }
@@ -90,14 +98,19 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
     return json({ error: 'invalid JSON' }, 400);
   }
 
-  const order = orderFromEvent(event);
+  const order = orderFromEvent(event, env.AUDIT_PAYMENT_LINK_ID);
   // Every other event type is acknowledged rather than rejected. A non-2xx
   // tells Stripe the endpoint is broken and it starts retrying, so refusing
   // events we simply do not act on would manufacture an outage.
   if (!order) return json({ ok: true, ignored: true });
 
   const { stored } = await recordOrder(env.STORE, order);
-  return json({ ok: true, sessionId: order.sessionId, stored });
+  return json({
+    ok: true,
+    sessionId: order.sessionId,
+    stored,
+    matchedProduct: order.matchedProduct,
+  });
 }
 
 async function handleUnsubscribe(
