@@ -207,6 +207,34 @@ function firstString(tags: Record<string, unknown>, ...keys: string[]): string |
 }
 
 /**
+ * Domains that are never the business's own website.
+ *
+ * Two kinds, both useless as prospects for the same reason: a report about
+ * them would be a report about somebody else's markup. A social page is
+ * obvious. Directories are subtler and were only caught by a live run — an OSM
+ * entry for a Bristol dentist pointed at an NHS listing page, and the draft
+ * email opened by telling the dentist that nhs.uk was returning an error.
+ */
+const NOT_THEIR_SITE = [
+  // Social
+  'facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'linkedin.com',
+  'tiktok.com', 'youtube.com', 'wa.me', 'linktr.ee', 'pinterest.com',
+  // Public sector and health directories
+  'nhs.uk', 'gov.uk', 'find-and-update.company-information.service.gov.uk',
+  // Trade and review directories
+  'yell.com', 'yelp.com', 'yelp.co.uk', 'checkatrade.com', 'trustpilot.com',
+  'thomsonlocal.com', 'freeindex.co.uk', 'ratedpeople.com', 'mybuilder.com',
+  'bark.com', 'trustatrader.com', 'which.co.uk',
+  // Booking and marketplace platforms
+  'booking.com', 'tripadvisor.com', 'tripadvisor.co.uk', 'opentable.com',
+  'justeat.co.uk', 'deliveroo.co.uk', 'ubereats.com', 'treatwell.co.uk',
+  'fresha.com', 'doctolib.fr', 'zocdoc.com',
+  // Site builders' default hosts: a parked or unfinished presence
+  'wixsite.com', 'weebly.com', 'squarespace.com', 'business.site',
+  'godaddysites.com', 'wordpress.com', 'blogspot.com',
+];
+
+/**
  * Normalise a website value into something auditable.
  *
  * OSM website tags are entered by hand and are messy: bare domains, missing
@@ -234,14 +262,8 @@ export function normaliseWebsite(raw: string | null): string | null {
     return null;
   }
 
-  // A social page is not a website we can audit, and auditing one would
-  // produce a report about Facebook's markup rather than the business.
-  const SOCIAL = [
-    'facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'linkedin.com',
-    'tiktok.com', 'youtube.com', 'wa.me', 'linktr.ee',
-  ];
   const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
-  if (SOCIAL.some((s) => host === s || host.endsWith(`.${s}`))) return null;
+  if (NOT_THEIR_SITE.some((s) => host === s || host.endsWith(`.${s}`))) return null;
 
   return parsed.toString();
 }

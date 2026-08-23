@@ -48,3 +48,27 @@ jobs:
         env:
           SITE_URL: https://example.github.io
           BASE_PATH: /test-repo
+
+  # The audit engine is its own package with its own dependencies, so it needs
+  # its own install. The root job deliberately skips it.
+  audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: audit
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: audit/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test

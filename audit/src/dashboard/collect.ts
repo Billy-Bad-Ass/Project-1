@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { reportSlug } from '../lib/slug';
 import type { SiteAudit } from '../lib/types';
 import type { Prospect } from '../discover/overpass';
 
@@ -68,7 +69,7 @@ export async function collect(): Promise<Snapshot> {
 
   const contacts: Record<string, ContactRecord> = {};
   for (const record of contactList) {
-    if (record.host) contacts[record.host.toLowerCase().replace(/^www\./, '')] = record;
+    if (record.host) contacts[record.host.trim().toLowerCase().replace(/^www\./, '')] = record;
   }
 
   return {
@@ -136,14 +137,47 @@ export interface Row {
   stage: 'audited' | 'sent' | 'replied' | 'client' | 'closed';
 }
 
+/**
+ * Match a hand-written contact record to a row.
+ *
+ * Keyed on the same host-plus-path identity that names report files, because
+ * keying on host alone made two pages of one domain collide — the same bug
+ * that silently overwrote reports earlier. A bare hostname is still accepted,
+ * since that is what anyone would naturally type, but only when exactly one
+ * row has it. An ambiguous hostname matches nothing rather than being applied
+ * to several businesses at once, which would misreport who actually replied.
+ */
+function matchContact(
+  contacts: Record<string, ContactRecord>,
+  slug: string,
+  host: string,
+  hostCounts: Map<string, number>,
+): ContactRecord | null {
+  const bySlug = contacts[slug];
+  if (bySlug) return bySlug;
+
+  const byHost = contacts[host];
+  if (byHost && hostCounts.get(host) === 1) return byHost;
+
+  return null;
+}
+
 export function rows(snapshot: Snapshot): Row[] {
-  const byHost = new Map(snapshot.prospects.map((p) => [hostOf(p.website), p]));
+  // Identity is host plus path, matching how report files are named.
+  const byKey = new Map(snapshot.prospects.map((p) => [reportSlug(p.website), p]));
+
+  const hostCounts = new Map<string, number>();
+  for (const audit of snapshot.audits) {
+    const host = hostOf(audit.finalUrl);
+    hostCounts.set(host, (hostCounts.get(host) ?? 0) + 1);
+  }
 
   return snapshot.audits
     .map((audit): Row => {
       const host = hostOf(audit.finalUrl);
-      const prospect = byHost.get(host) ?? null;
-      const contact = snapshot.contacts[host] ?? null;
+      const slug = reportSlug(audit.finalUrl);
+      const prospect = byKey.get(slug) ?? null;
+      const contact = matchContact(snapshot.contacts, slug, host, hostCounts);
 
       let stage: Row['stage'] = 'audited';
       if (contact?.outcome === 'client') stage = 'client';
