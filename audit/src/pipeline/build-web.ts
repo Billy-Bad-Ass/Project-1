@@ -10,6 +10,7 @@ import {
   ruleCount,
   testimonialsHtml,
 } from '../report/proof';
+import { guideHtml, GUIDE_CSS } from '../report/guide';
 
 /**
  * Builds the sales site by substituting real values into the templates.
@@ -113,6 +114,20 @@ async function replacements(): Promise<Replacement[]> {
       value: PROOF_CSS,
       required: false,
       hint: 'generated from report/proof.ts',
+    },
+    // Keyed to the rule ids, and tested in both directions: every check has an
+    // entry, and no entry describes a check that no longer runs.
+    {
+      token: 'PROBLEM_GUIDE',
+      value: guideHtml(),
+      required: false,
+      hint: 'generated from report/guide.ts',
+    },
+    {
+      token: 'GUIDE_CSS',
+      value: GUIDE_CSS,
+      required: false,
+      hint: 'generated from report/guide.ts',
     },
     // Real quotes when there are any; an honest offer when there are none.
     // Never an invented one.

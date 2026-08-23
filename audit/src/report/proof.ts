@@ -135,8 +135,9 @@ export function testimonialsHtml(
         what I will do for the first ten people who buy one:
       </p>
       <ul class="founding-terms">
-        <li><strong>Full refund if you do not find it useful.</strong> No form, no
-        questions — reply to the receipt and it is done.</li>
+        <li><strong>A free re-check once you have made the fixes.</strong> Send
+        it back when the work is done and I will run the whole thing again so
+        you can see what moved.</li>
         <li><strong>A call to walk you through it,</strong> free, whether or not
         you hire me afterwards.</li>
         <li><strong>${escapeHtml(priceDisplay)} stays the price for you</strong>

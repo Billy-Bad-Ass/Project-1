@@ -46,8 +46,16 @@ test('with no testimonials the page never implies it has any', () => {
 
 test('the empty state makes a concrete offer, not an excuse', () => {
   const html = testimonialsHtml([], '$100');
-  assert.match(html, /refund/i);
+  assert.match(html, /free re-check/i);
   assert.match(html, /\$100/);
+});
+
+test('the founding offer promises no satisfaction refund', () => {
+  // Removed deliberately: the sale is final once written work is delivered.
+  // The offer must not quietly reintroduce the promise the policy withdrew.
+  const html = testimonialsHtml([], '$100');
+  assert.doesNotMatch(html, /refund/i);
+  assert.doesNotMatch(html, /money back/i);
 });
 
 test('a real testimonial replaces the offer entirely', () => {

@@ -15,6 +15,7 @@
   }
   BRAND_CSS
   PROOF_CSS
+  GUIDE_CSS
   .section-lede{color:var(--muted);margin:0 0 22px;font-size:15.5px}
   .preview{padding-top:8px}
   .shot{margin-top:4px}
@@ -89,7 +90,7 @@
     </p>
     <!-- STRIPE_PAYMENT_LINK is replaced by build-web.ts -->
     <a class="cta" href="STRIPE_PAYMENT_LINK">Get my website checked</a>
-    <p class="cta-note">Delivered within one working day · <a href="legal.html#refunds">Money back</a> if you don't find it useful</p>
+    <p class="cta-note">Delivered within one working day · One site, one price, <a href="legal.html#refunds">no subscription</a></p>
   </header>
 
   <section class="preview">
@@ -150,9 +151,18 @@
   </section>
 
   <section>
-    <h2>What gets checked</h2>
-    <p class="section-lede">All RULE_COUNT of them, grouped. This list is generated from the checks that actually run, so it cannot drift from what you get.</p>
-    CHECKS_LIST
+    <h2>What we look for, and what to do about it</h2>
+    <p class="section-lede">
+      All RULE_COUNT checks, grouped. Open any one to see what it costs you and
+      what fixing it involves — including whether it is something you can do
+      yourself in ten minutes or a job for whoever built the site.
+    </p>
+    PROBLEM_GUIDE
+    <p class="section-lede" style="margin:22px 0 0">
+      Effort and who-does-it are estimates for a typical small business site.
+      This list is generated from the checks that actually run, so it cannot
+      drift from what you get.
+    </p>
   </section>
 
   <section>
@@ -173,9 +183,9 @@
       <summary>What if my site turns out to be fine?</summary>
       <p>
         Then the report says so, and lists what's already working. That's a
-        genuine answer — it means the problem is elsewhere and you can stop
-        spending money on the website. If you feel it wasn't worth it, ask for a
-        refund and you'll get one.
+        genuine answer, not a wasted one — it means the problem is somewhere
+        other than the website, and you can stop spending money there. Knowing
+        the site is fine is worth having before you pay someone to rebuild it.
       </p>
     </details>
 
