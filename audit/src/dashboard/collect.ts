@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { qualify } from '../outreach/qualify';
 import { join } from 'node:path';
 import { reportSlug } from '../lib/slug';
 import type { SiteAudit } from '../lib/types';
@@ -107,7 +108,12 @@ export function funnel(snapshot: Snapshot): Funnel {
   return {
     found: snapshot.prospects.length,
     audited: snapshot.audits.length,
-    worthContacting: snapshot.audits.filter((a) => a.opportunityScore >= 40).length,
+    // The same qualification the drafter uses, not a second opinion.
+    // These had drifted: the dashboard counted opportunity >= 40 and reported
+    // 15 while the drafter, applying disqualifiers, wrote 11. A dashboard whose
+    // job is to be the single view of the pipeline cannot hold its own
+    // definition of who is worth contacting.
+    worthContacting: qualify(snapshot.audits).contact.length,
     contacted: contacts.filter((c) => c.sentAt).length,
     replied: contacts.filter((c) => c.repliedAt).length,
     clients: contacts.filter((c) => c.outcome === 'client').length + paidOrders,
