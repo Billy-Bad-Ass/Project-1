@@ -3,8 +3,7 @@ import { join } from 'node:path';
 import { auditSite } from '../lib/audit';
 import { PageFetcher } from '../lib/fetch-page';
 import { fetchPaidOrders, stripeClient, type Order } from '../lib/orders';
-import { reportSlug } from '../lib/slug';
-import { renderReport } from '../report/render';
+import { fulfilOrders, outstandingActions, type Ledger } from './fulfil-core';
 
 /**
  * Turn paid Stripe orders into delivered reports.
@@ -102,53 +101,27 @@ async function main(): Promise<void> {
     return;
   }
 
-  await mkdir(join(OUT, 'delivered'), { recursive: true });
   const fetcher = new PageFetcher({ log });
-  let delivered = 0;
 
-  for (const order of workable) {
-    log(`Auditing ${order.siteUrl} ...`);
-
+  const result = await fulfilOrders(workable, ledger, {
+    outDir: OUT,
     // A paying customer asked us to look at their own site, so robots.txt is
-    // not a reason to refuse — unlike the cold-outreach path, we are invited.
-    const audit = await auditSite(order.siteUrl!, {
-      fetcher,
-      respectRobots: false,
-      log,
-    });
-
-    if (audit.error) {
-      log(`  ! could not reach it: ${audit.error}`);
-      log(`    ${order.email ?? 'customer'} needs an email — do not mark this delivered.`);
-      continue;
-    }
-
-    const file = `delivered/${reportSlug(audit.finalUrl)}-${order.sessionId.slice(-8)}.html`;
-    await writeFile(join(OUT, file), renderReport(audit), 'utf8');
-
-    ledger[order.sessionId] = {
-      sessionId: order.sessionId,
-      siteUrl: order.siteUrl!,
-      email: order.email,
-      reportFile: file,
-      fulfilledAt: new Date().toISOString(),
-      healthScore: audit.healthScore,
-    };
-    await writeLedger(ledger);
-
-    delivered += 1;
-    log(`  health ${audit.healthScore}/100, ${audit.findings.length} findings -> out/${file}`);
-  }
+    // not a reason to refuse — unlike cold outreach, we are invited.
+    audit: (url) => auditSite(url, { fetcher, respectRobots: false, log }),
+    log,
+  });
+  await writeLedger(ledger);
 
   log('');
-  log(`Delivered ${delivered} report(s).`);
-  if (delivered > 0) {
+  log(`Delivered ${result.delivered.length} report(s).`);
+
+  // Everything a person still owes someone who has paid, in one place. A run
+  // that only logs successes leaves the failures to be remembered.
+  const actions = outstandingActions(result);
+  if (actions.length > 0) {
     log('');
-    log('Send each file to its customer. Emails to write:');
-    for (const order of workable) {
-      const entry = ledger[order.sessionId];
-      if (entry) log(`  ${entry.email ?? '(no email on file)'}  <- out/${entry.reportFile}`);
-    }
+    log('Still to do:');
+    for (const action of actions) log(`  ${action}`);
   }
 }
 

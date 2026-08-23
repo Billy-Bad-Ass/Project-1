@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { sender } from '../report/config';
+import { formatDate } from '../lib/locale';
 import { BRAND_SIGNATURE_CSS, brandFaviconDataUri, brandSignature } from '../report/brand';
 import {
   checksHtml,
@@ -56,6 +57,20 @@ async function replacements(): Promise<Replacement[]> {
       value: sender.email,
       required: false,
       hint: 'AUDIT_SENDER_EMAIL',
+    },
+    // Required on the legal page for the same reason it is required in every
+    // cold email: a business selling to strangers has to be locatable.
+    {
+      token: 'SENDER_ADDRESS',
+      value: process.env.AUDIT_POSTAL_ADDRESS,
+      required: true,
+      hint: 'AUDIT_POSTAL_ADDRESS — the address already used in the email footer',
+    },
+    {
+      token: 'LEGAL_UPDATED',
+      value: formatDate(new Date()),
+      required: false,
+      hint: 'today',
     },
     // The brand is substituted rather than pasted into the templates so the
     // site, the reports and the dashboard all draw the mark from one module.
