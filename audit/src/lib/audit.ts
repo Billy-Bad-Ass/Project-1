@@ -59,6 +59,30 @@ export function sortFindings(findings: Finding[]): Finding[] {
   });
 }
 
+/**
+ * Why a response cannot be audited, or null if it can.
+ *
+ * Deliberately conservative: it is far cheaper to drop a real prospect than to
+ * tell a stranger their working website is down. Anything we could not read is
+ * treated as unknown rather than broken.
+ */
+export function blockedReason(status: number | null, loadMs: number | null): string | null {
+  if (status === null) return null;
+
+  // Refusals aimed at automated clients. The site is almost certainly fine for
+  // a human, and a WAF answers in milliseconds because nothing was rendered.
+  if (status === 401 || status === 403 || status === 429) {
+    return `blocked by the site (HTTP ${status})`;
+  }
+
+  // A server error might be genuine, but one sample is not evidence enough to
+  // put "your site is down" in front of a business owner.
+  if (status >= 500) return `server error on our one request (HTTP ${status})`;
+
+  // 404 on a homepage is a real, checkable problem worth reporting.
+  return null;
+}
+
 export async function auditSite(url: string, options: AuditOptions = {}): Promise<SiteAudit> {
   const fetcher = options.fetcher ?? new PageFetcher();
   const rules = options.rules ?? ALL_RULES;
@@ -96,6 +120,21 @@ export async function auditSite(url: string, options: AuditOptions = {}): Promis
       log(`  skipped (robots.txt disallows): ${normalised}`);
       return { ...base, error: 'skipped: robots.txt disallows crawling this page' };
     }
+  }
+
+  // A page we could not actually read tells us nothing about the site.
+  //
+  // This matters more than it sounds. When a server refuses the scanner, every
+  // content rule fails for want of content, health collapses to single digits,
+  // and the site sorts to the very top of the outreach list — so the businesses
+  // most likely to be fine are the ones we would email first, telling them
+  // their site is broken when it works perfectly in a browser.
+  //
+  // A fast 403 is the signature of a bot filter, not an outage.
+  const blocked = blockedReason(page.status, page.loadMs);
+  if (blocked) {
+    log(`  skipped (${blocked}): ${normalised}`);
+    return { ...base, status: page.status, loadMs: page.loadMs, error: `unauditable: ${blocked}` };
   }
 
   const findings: Finding[] = [];
