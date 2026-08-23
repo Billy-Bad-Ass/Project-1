@@ -3,6 +3,9 @@ import { join } from 'node:path';
 import { draftFirstEmail, draftFollowUp, signalSpread, type EmailDraft } from '../outreach/draft';
 import { reportSlug } from '../lib/slug';
 import type { SiteAudit } from '../lib/types';
+import { complianceConfig, MissingComplianceConfig } from '../outreach/compliance';
+import { loadSuppressed, partitionSuppressed } from '../outreach/suppression';
+import { qualify, TIER_ADVICE } from '../outreach/qualify';
 
 /**
  * Write an outreach draft for every audited site.
@@ -40,11 +43,21 @@ async function main(): Promise<void> {
     throw new Error('No out/audits.json. Run `npm run audit -- --list yourlist.txt` first.');
   }
 
-  const eligible = audits.filter(
-    (a) => a.error === null && a.opportunityScore >= args.minOpportunity && a.findings.length > 0,
-  );
+  const { contact, skipped } = qualify(audits, { minOpportunity: args.minOpportunity });
+  const eligible = contact.map((c) => c.audit);
+  const tierOf = new Map(contact.map((c) => [c.audit.finalUrl, c.tier]));
 
-  log(`${audits.length} audited, ${eligible.length} worth contacting (opportunity >= ${args.minOpportunity})\n`);
+  log(`${audits.length} audited, ${eligible.length} worth contacting\n`);
+
+  if (skipped.length > 0) {
+    // Named rather than silently dropped: a prospect removed without a reason
+    // is one nobody can argue with later.
+    const byReason = new Map<string, number>();
+    for (const { why } of skipped) byReason.set(why.id, (byReason.get(why.id) ?? 0) + 1);
+    log('Not contacting:');
+    for (const [id, count] of byReason) log(`  ${count} · ${id}`);
+    log('');
+  }
 
   if (eligible.length === 0) {
     log('Nothing to draft. Either lower --min-opportunity or scan more sites.');
@@ -52,6 +65,36 @@ async function main(): Promise<void> {
   }
 
   const dir = join(OUT, args.followUp ? 'emails-followup' : 'emails');
+  // Resolved once, before anything is written. Missing settings stop the whole
+  // run with one clear message rather than throwing on the first audit.
+  let compliance;
+  try {
+    compliance = complianceConfig();
+  } catch (error) {
+    if (error instanceof MissingComplianceConfig) {
+      process.stderr.write(`${error.message}\n`);
+      process.exitCode = 1;
+      return;
+    }
+    throw error;
+  }
+
+  // Checked before drafting, not before sending. A draft that should not exist
+  // is a draft somebody eventually sends by accident.
+  const suppressed = await loadSuppressed();
+  const { allowed, blocked } = partitionSuppressed(
+    eligible,
+    (a: SiteAudit) => a.finalUrl,
+    suppressed,
+  );
+  if (blocked.length > 0) {
+    log(`Skipped ${blocked.length} suppressed business(es):`);
+    for (const { item, entry } of blocked) {
+      log(`  ${entry.key} — ${entry.reason}`);
+    }
+    log('');
+  }
+
   await mkdir(dir, { recursive: true });
 
   const drafts: EmailDraft[] = [];
@@ -62,8 +105,10 @@ async function main(): Promise<void> {
     '',
   ];
 
-  for (const audit of eligible) {
-    const draft = args.followUp ? draftFollowUp(audit) : draftFirstEmail(audit);
+  for (const audit of allowed) {
+    const draft = args.followUp
+      ? draftFollowUp(audit, { compliance })
+      : draftFirstEmail(audit, { compliance });
     if (!draft) continue;
     drafts.push(draft);
 
@@ -77,6 +122,8 @@ async function main(): Promise<void> {
 
     index.push(`## ${slug}`);
     index.push('');
+    const tier = tierOf.get(audit.finalUrl) ?? 3;
+    index.push(`- **Tier ${tier}** — ${TIER_ADVICE[tier]}`);
     index.push(`- Opportunity ${audit.opportunityScore}/100 · opens on \`${draft.signal}\``);
     index.push(`- Report to attach: \`reports/${slug}.html\``);
     index.push(`- Draft: \`${args.followUp ? 'emails-followup' : 'emails'}/${file}\``);

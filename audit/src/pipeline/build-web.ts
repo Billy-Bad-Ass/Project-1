@@ -1,7 +1,16 @@
-import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { sender } from '../report/config';
+import { formatDate } from '../lib/locale';
 import { BRAND_SIGNATURE_CSS, brandFaviconDataUri, brandSignature } from '../report/brand';
+import {
+  checksHtml,
+  loadTestimonials,
+  PROOF_CSS,
+  ruleCount,
+  testimonialsHtml,
+} from '../report/proof';
+import { guideHtml, GUIDE_CSS } from '../report/guide';
 
 /**
  * Builds the sales site by substituting real values into the templates.
@@ -24,7 +33,7 @@ interface Replacement {
   hint: string;
 }
 
-function replacements(): Replacement[] {
+async function replacements(): Promise<Replacement[]> {
   return [
     {
       token: 'STRIPE_PAYMENT_LINK',
@@ -50,6 +59,20 @@ function replacements(): Replacement[] {
       required: false,
       hint: 'AUDIT_SENDER_EMAIL',
     },
+    // Required on the legal page for the same reason it is required in every
+    // cold email: a business selling to strangers has to be locatable.
+    {
+      token: 'SENDER_ADDRESS',
+      value: process.env.AUDIT_POSTAL_ADDRESS,
+      required: true,
+      hint: 'AUDIT_POSTAL_ADDRESS — the address already used in the email footer',
+    },
+    {
+      token: 'LEGAL_UPDATED',
+      value: formatDate(new Date()),
+      required: false,
+      hint: 'today',
+    },
     // The brand is substituted rather than pasted into the templates so the
     // site, the reports and the dashboard all draw the mark from one module.
     // A hand-copied SVG in a template is a copy that silently stops matching
@@ -72,6 +95,48 @@ function replacements(): Replacement[] {
       required: false,
       hint: 'generated from report/brand.ts',
     },
+    // Generated from the rules that actually run, so the page cannot claim a
+    // count it no longer performs.
+    {
+      token: 'CHECKS_LIST',
+      value: checksHtml(),
+      required: false,
+      hint: 'generated from rules/index.ts',
+    },
+    {
+      token: 'RULE_COUNT',
+      value: String(ruleCount()),
+      required: false,
+      hint: 'generated from rules/index.ts',
+    },
+    {
+      token: 'PROOF_CSS',
+      value: PROOF_CSS,
+      required: false,
+      hint: 'generated from report/proof.ts',
+    },
+    // Keyed to the rule ids, and tested in both directions: every check has an
+    // entry, and no entry describes a check that no longer runs.
+    {
+      token: 'PROBLEM_GUIDE',
+      value: guideHtml(),
+      required: false,
+      hint: 'generated from report/guide.ts',
+    },
+    {
+      token: 'GUIDE_CSS',
+      value: GUIDE_CSS,
+      required: false,
+      hint: 'generated from report/guide.ts',
+    },
+    // Real quotes when there are any; an honest offer when there are none.
+    // Never an invented one.
+    {
+      token: 'TESTIMONIALS',
+      value: testimonialsHtml(await loadTestimonials(), process.env.PRICE_DISPLAY ?? ''),
+      required: false,
+      hint: 'web/testimonials.json',
+    },
   ];
 }
 
@@ -84,7 +149,7 @@ function applyAll(html: string, subs: Replacement[]): string {
 }
 
 async function main(): Promise<void> {
-  const subs = replacements();
+  const subs = await replacements();
 
   const missing = subs.filter((s) => s.required && (!s.value || s.value.trim() === ''));
   if (missing.length > 0) {
@@ -118,7 +183,9 @@ async function main(): Promise<void> {
       await writeFile(join(OUT, file), output, 'utf8');
       built += 1;
     } else {
-      await copyFile(join(SRC, file), join(OUT, file));
+      // `cp` with recursive, not copyFile: web/assets is a directory, and
+      // copyFile throws EISDIR on one.
+      await cp(join(SRC, file), join(OUT, file), { recursive: true });
     }
   }
 

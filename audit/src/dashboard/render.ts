@@ -1,4 +1,5 @@
 import { funnel, type Row, type Snapshot } from './collect';
+import { formatDateTime, formatMoney, formatShortDate, locale } from '../lib/locale';
 import { BRAND_SIGNATURE_CSS, brandSignature } from '../report/brand';
 
 /**
@@ -27,9 +28,7 @@ const STAGE_LABEL: Record<Row['stage'], string> = {
   closed: 'Closed',
 };
 
-function money(amount: number): string {
-  return `£${amount.toLocaleString('en-GB')}`;
-}
+
 
 function funnelBar(label: string, value: number, of: number, tone: string): string {
   const width = of === 0 ? 0 : Math.round((value / of) * 100);
@@ -75,7 +74,7 @@ export function renderDashboard(
         </tr>`;
 
   return `<!doctype html>
-<html lang="en-GB">
+<html lang="${locale()}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -175,7 +174,7 @@ export function renderDashboard(
 
   <header>
     <div class="brand">${brandSignature()}<h1>Pipeline</h1></div>
-    <span class="stamp">${escapeHtml(new Date(snapshot.generatedAt).toLocaleString('en-GB'))}</span>
+    <span class="stamp">${escapeHtml(formatDateTime(snapshot.generatedAt))}</span>
   </header>
 
   <div class="cards">
@@ -183,7 +182,7 @@ export function renderDashboard(
     <div class="card"><div class="v">${f.worthContacting}</div><div class="k">Worth contacting</div></div>
     <div class="card"><div class="v">${f.contacted}</div><div class="k">Emailed</div></div>
     <div class="card"><div class="v">${f.replied}</div><div class="k">Replied</div></div>
-    <div class="card money"><div class="v">${money(f.revenue)}</div><div class="k">Earned</div></div>
+    <div class="card money"><div class="v">${formatMoney(f.revenue)}</div><div class="k">Earned</div></div>
   </div>
 
   ${
@@ -196,7 +195,7 @@ export function renderDashboard(
           (r) =>
             `<li><strong>${escapeHtml(r.name ?? r.host)}</strong> replied${
               r.contact?.repliedAt
-                ? ` on ${escapeHtml(new Date(r.contact.repliedAt).toLocaleDateString('en-GB'))}`
+                ? ` on ${escapeHtml(formatShortDate(r.contact.repliedAt))}`
                 : ''
             }${r.contact?.notes ? ` — ${escapeHtml(r.contact.notes)}` : ''}</li>`,
         )

@@ -14,6 +14,11 @@
     --accent:#2B5CE6; --accent-dark:#1E45B8; --good:#0f7a52; --bad:#b0322a;
   }
   BRAND_CSS
+  PROOF_CSS
+  GUIDE_CSS
+  .section-lede{color:var(--muted);margin:0 0 22px;font-size:15.5px}
+  .preview{padding-top:8px}
+  .shot{margin-top:4px}
   *{box-sizing:border-box}
   body{margin:0;font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
   .wrap{max-width:760px;margin:0 auto;padding:0 24px}
@@ -85,8 +90,21 @@
     </p>
     <!-- STRIPE_PAYMENT_LINK is replaced by build-web.ts -->
     <a class="cta" href="STRIPE_PAYMENT_LINK">Get my website checked</a>
-    <p class="cta-note">Delivered within one working day · Money back if you don't find it useful</p>
+    <p class="cta-note">Delivered within one working day · One site, one price, <a href="legal.html#refunds">no subscription</a></p>
   </header>
+
+  <section class="preview">
+    <h2>This is what arrives</h2>
+    <p class="section-lede">
+      Not a dashboard login or a PDF of charts — a document written for you, saying
+      what is wrong, what it costs you, and exactly how to fix it. Every finding
+      names the evidence it was based on.
+    </p>
+    <figure class="shot">
+      <img src="assets/report-preview.png" alt="The first page of a website review: a health score of 46 out of 100, a plain-English summary, and the first two urgent findings each with why it matters and how to fix it." width="900" height="1180" loading="lazy">
+      <figcaption>A real report, rendered by the same template yours would be. The business is an example; the findings are the ones we see most often.</figcaption>
+    </figure>
+  </section>
 
   <section>
     <h2>Most small business sites have at least one of these</h2>
@@ -101,7 +119,7 @@
     <div class="grid">
       <div class="card">
         <h3>You're not sure what's wrong</h3>
-        <p>The site works when you check it. But enquiries are slower than they should be, and nobody can tell you why.</p>
+        <p>The site works when you check it. But inquiries are slower than they should be, and nobody can tell you why.</p>
       </div>
       <div class="card">
         <h3>You've been quoted for a rebuild</h3>
@@ -122,7 +140,7 @@
         <p>One form. No account to create, nothing to install.</p>
       </li>
       <li>
-        <h3>Your site gets checked against 22 things</h3>
+        <h3>Your site gets checked against RULE_COUNT things</h3>
         <p>Everything from whether it works on a phone to whether Google can list it.</p>
       </li>
       <li>
@@ -133,34 +151,23 @@
   </section>
 
   <section>
-    <h2>What gets checked</h2>
-    <ul class="checks">
-      <li>Works properly on phones</li>
-      <li>Visitors can zoom in</li>
-      <li>Secure connection (no browser warnings)</li>
-      <li>Nothing loading insecurely</li>
-      <li>Google is allowed to list you</li>
-      <li>Page title and search description</li>
-      <li>Main heading</li>
-      <li>Business details search engines can read</li>
-      <li>Duplicate-address handling</li>
-      <li>A way to get in touch</li>
-      <li>Tap-to-call phone number</li>
-      <li>A clear next step for visitors</li>
-      <li>How links look when shared</li>
-      <li>Server response speed</li>
-      <li>Page weight</li>
-      <li>Images that shift the layout</li>
-      <li>Scripts blocking the page</li>
-      <li>Text alternatives on images</li>
-      <li>Labelled form fields</li>
-      <li>Page language for screen readers</li>
-      <li>Privacy policy where data is collected</li>
-      <li>Broken or error pages</li>
-    </ul>
+    <h2>What we look for, and what to do about it</h2>
+    <p class="section-lede">
+      All RULE_COUNT checks, grouped. Open any one to see what it costs you and
+      what fixing it involves — including whether it is something you can do
+      yourself in ten minutes or a job for whoever built the site.
+    </p>
+    PROBLEM_GUIDE
+    <p class="section-lede" style="margin:22px 0 0">
+      Effort and who-does-it are estimates for a typical small business site.
+      This list is generated from the checks that actually run, so it cannot
+      drift from what you get.
+    </p>
   </section>
 
   <section>
+    TESTIMONIALS
+
     <div class="price">
       <div class="amount">PRICE_DISPLAY</div>
       <p class="per">One-off. No subscription, no account.</p>
@@ -176,9 +183,9 @@
       <summary>What if my site turns out to be fine?</summary>
       <p>
         Then the report says so, and lists what's already working. That's a
-        genuine answer — it means the problem is elsewhere and you can stop
-        spending money on the website. If you feel it wasn't worth it, ask for a
-        refund and you'll get one.
+        genuine answer, not a wasted one — it means the problem is somewhere
+        other than the website, and you can stop spending money there. Knowing
+        the site is fine is worth having before you pay someone to rebuild it.
       </p>
     </details>
 
@@ -202,7 +209,7 @@
     <details>
       <summary>How thorough is it?</summary>
       <p>
-        It checks your home page against 22 specific things, which is where the
+        It checks your home page against RULE_COUNT specific things, which is where the
         problems that affect every visitor live. It is not a full technical audit
         of every page, and the speed findings are indicators worth investigating
         rather than a complete performance profile. The report says this too.
@@ -217,6 +224,7 @@
 
   <footer>
     <p>SENDER_BUSINESS · <a href="mailto:SENDER_EMAIL">SENDER_EMAIL</a></p>
+    <p><a href="legal.html">Terms, refunds and privacy</a></p>
   </footer>
 
 </div>

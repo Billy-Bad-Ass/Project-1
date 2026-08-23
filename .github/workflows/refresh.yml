@@ -100,6 +100,62 @@ jobs:
           SITE_URL: ${{ steps.site.outputs.url }}
           BASE_PATH: ${{ steps.site.outputs.base }}
 
+      # The audit business site, published alongside at /audit/.
+      #
+      # Built here rather than committed because it carries a real postal
+      # address and a live payment link. Those belong on the served page, not
+      # in a public repository's history where code search indexes them.
+      #
+      # Skipped rather than fatal when the secrets are absent: a missing
+      # setting must not take down the daily deploy of the other site.
+      - name: Build the audit site
+        id: audit_site
+        env:
+          STRIPE_PAYMENT_LINK: ${{ secrets.STRIPE_PAYMENT_LINK }}
+          PRICE_DISPLAY: ${{ secrets.PRICE_DISPLAY }}
+          AUDIT_POSTAL_ADDRESS: ${{ secrets.AUDIT_POSTAL_ADDRESS }}
+          AUDIT_SENDER_BUSINESS: ${{ vars.AUDIT_SENDER_BUSINESS || 'BBA Network' }}
+          AUDIT_SENDER_EMAIL: ${{ secrets.AUDIT_SENDER_EMAIL }}
+          AUDIT_OPT_OUT_REPLY: 'Reply "stop" to this email and I will never contact you again.'
+          AUDIT_LOCALE: en-US
+        run: |
+          set -e
+          missing=""
+          for name in STRIPE_PAYMENT_LINK PRICE_DISPLAY AUDIT_POSTAL_ADDRESS AUDIT_SENDER_EMAIL; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          # AUDIT_SENDER_EMAIL is in this list even though build:web treats it
+          # as optional. Optional means the page builds without it; it does not
+          # mean the page is fit to publish. Absent, the contact section of the
+          # policy page renders as a blank name and an empty mailto: — a page
+          # that takes money with no way to reach the seller.
+          if [ -n "$missing" ]; then
+            echo "::warning::Audit site skipped — secrets not set:$missing"
+            echo "built=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          cd audit
+          npm ci
+          npm run build:web
+          mkdir -p ../out/audit
+          cp -r out/site/. ../out/audit/
+          echo "built=true" >> "$GITHUB_OUTPUT"
+
+      - name: Confirm the audit site published something real
+        if: steps.audit_site.outputs.built == 'true'
+        env:
+          AUDIT_POSTAL_ADDRESS: ${{ secrets.AUDIT_POSTAL_ADDRESS }}
+        run: |
+          set -e
+          test -f out/audit/index.html
+          test -f out/audit/legal.html
+          # A dead buy button is the failure this whole build guards against.
+          grep -q 'buy.stripe.com' out/audit/index.html
+          # And the two things a buyer needs in order to chase us afterwards.
+          grep -qE 'mailto:[^"]+@[^"]+' out/audit/legal.html
+          grep -qF "$AUDIT_POSTAL_ADDRESS" out/audit/legal.html
+          echo "audit site: $(du -sh out/audit | cut -f1)"
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out

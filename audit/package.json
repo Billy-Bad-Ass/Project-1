@@ -15,7 +15,10 @@
     "build:web": "tsx src/pipeline/build-web.ts",
     "draft": "tsx src/pipeline/draft-emails.ts",
     "find": "tsx src/pipeline/find-prospects.ts",
-    "dashboard": "tsx src/pipeline/dashboard.ts"
+    "dashboard": "tsx src/pipeline/dashboard.ts",
+    "signature": "tsx src/pipeline/build-signature.ts",
+    "shots": "tsx src/pipeline/build-shots.ts",
+    "orders": "tsx src/pipeline/check-orders.ts"
   },
   "dependencies": {
     "node-html-parser": "^6.1.13",

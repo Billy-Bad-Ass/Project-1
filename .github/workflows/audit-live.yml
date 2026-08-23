@@ -8,8 +8,23 @@ name: Audit live sites
 on:
   workflow_dispatch:
     inputs:
+      what:
+        description: 'Trade to look for'
+        default: 'dentist'
+      where:
+        description: 'Town or city'
+        default: 'Fairfax'
+      country:
+        description: 'ISO country code, to disambiguate the place name'
+        default: 'US'
+      limit:
+        description: 'Maximum prospects'
+        default: '40'
+      top:
+        description: 'How many audits to export for local drafting'
+        default: '15'
       list:
-        description: 'Prospect list file'
+        description: 'Prospect list file (audit job only)'
         default: 'prospects.example.txt'
       concurrency:
         description: 'Sites in flight at once'
@@ -21,6 +36,8 @@ jobs:
   # the manual work, so it needs testing against the live service.
   discover:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: audit
@@ -34,42 +51,101 @@ jobs:
       - run: npm ci
 
       - name: Find real businesses
-        run: npm run find -- --what dentist --where Bristol --country GB --limit 25
+        run: |
+          npm run find -- \
+            --what "${{ github.event.inputs.what || 'dentist' }}" \
+            --where "${{ github.event.inputs.where || 'Fairfax' }}" \
+            --country "${{ github.event.inputs.country || 'US' }}" \
+            --limit "${{ github.event.inputs.limit || '40' }}"
 
-      - name: Assert we found a real city's worth of businesses
+      - name: Assert the place resolved to somewhere real
         run: |
           set -e
-          count=$(grep -vc '^#' out/prospects.txt || true)
+          # Non-comment, non-blank. `grep -vc '^#'` counted the blank
+          # separator line too, reporting 3 for a 2-prospect run — inflating
+          # the very number this check exists to police.
+          count=$(grep -v '^#' out/prospects.txt | grep -c '[^[:space:]]' || true)
           echo "found=$count"
-          # Bristol UK has many dentists. A single result means the area
-          # resolved to somewhere small or on the wrong continent, which is
-          # exactly the bug this assertion exists to catch.
-          if [ "$count" -lt 5 ]; then
+          # A town with a trade in it has more than a couple. One or zero means
+          # the name resolved to somewhere tiny or on the wrong continent —
+          # exactly the Bristol-to-Tennessee bug this assertion exists to catch.
+          if [ "$count" -lt 3 ]; then
             echo "Only $count prospects — the area probably resolved wrongly"
             exit 1
           fi
 
+      - name: Show exactly who was found
+        run: |
+          echo '--- prospects.txt ---'
+          cat out/prospects.txt
+          echo
+          echo '--- prospects.csv ---'
+          cat out/prospects.csv 2>/dev/null || echo '(none)'
+
       - name: Audit what was found
         run: npm run audit -- --list out/prospects.txt --concurrency 2
 
-      - name: Draft outreach for them
-        run: npm run draft -- --min-opportunity 40
-
-      - name: Show a draft
-        run: |
-          first=$(ls out/emails/*.txt 2>/dev/null | head -1)
-          if [ -n "$first" ]; then echo "--- $first ---"; cat "$first"; fi
+      # Deliberately no drafting here. Drafts carry a real postal address and
+      # opt-out, and those belong in a gitignored .env.local rather than in a
+      # public repository's Actions logs. Discovery and auditing are the parts
+      # that need the live network; drafting runs locally afterwards.
 
       - name: Show the outreach list
         run: head -60 out/leads.md
+
+      # Drafting happens locally, because a draft carries a real postal address
+      # and this repository is public. But the audits it needs can only be
+      # produced here, where the network is reachable. This step is the bridge:
+      # the top N audits, compressed and base64'd so they survive a log.
+      - name: Export top audits for local drafting
+        run: |
+          node -e "
+            const fs = require('fs');
+            const all = JSON.parse(fs.readFileSync('out/audits.json', 'utf8'));
+            const top = all
+              .filter(a => !a.error)
+              .sort((a, b) => b.opportunityScore - a.opportunityScore)
+              .slice(0, Number(process.env.TOP || 15));
+            fs.writeFileSync('out/audits-top.json', JSON.stringify(top));
+            console.error('exported ' + top.length + ' of ' + all.length);
+          "
+        env:
+          TOP: ${{ github.event.inputs.top || '15' }}
+
+      # Published to a dedicated branch rather than printed, because a log is a
+      # transcription problem: 10KB of base64 read back by eye corrupts, and a
+      # corrupted audit set drafts confident emails about the wrong findings.
+      # A branch is fetched byte-for-byte or not at all.
+      #
+      # Only the audits go: URLs and findings, which are public facts about
+      # public websites. The prospect CSV carries names and phone numbers and
+      # stays in the access-controlled artifact instead.
+      - name: Publish audits to the live-data branch
+        run: |
+          set -e
+          work=$(mktemp -d)
+          cp out/audits-top.json "$work/"
+          cd "$work"
+          git init -q -b live-data
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add -A
+          git commit -q -m "Audits from run ${{ github.run_id }} (${{ github.event.inputs.what || 'dentist' }} in ${{ github.event.inputs.where || 'Fairfax' }})"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" \
+            HEAD:refs/heads/live-data
+          echo "Published to the live-data branch."
+          echo "Locally: git fetch origin live-data && git show origin/live-data:audits-top.json > audit/out/audits.json"
 
       - uses: actions/upload-artifact@v5
         with:
           name: discovery-run
           path: |
+            audit/out/prospects.txt
             audit/out/prospects.csv
+            audit/out/prospects.json
             audit/out/leads.md
-            audit/out/emails/
+            audit/out/audits.json
             audit/out/reports/
           retention-days: 14
 

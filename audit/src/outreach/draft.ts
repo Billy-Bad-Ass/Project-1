@@ -1,6 +1,12 @@
 import { countBySeverity } from '../lib/audit';
 import type { Finding, SiteAudit } from '../lib/types';
 import { sender, type SenderConfig } from '../report/config';
+import {
+  complianceConfig,
+  complianceFooter,
+  provenanceLine,
+  type ComplianceConfig,
+} from './compliance';
 
 /**
  * Drafts outreach email from a site's real findings.
@@ -26,6 +32,11 @@ export interface EmailDraft {
 
 export interface DraftOptions {
   from?: SenderConfig;
+  /**
+   * Injectable so tests need no environment. Omitted in production, where
+   * the real settings are read and their absence is a hard failure.
+   */
+  compliance?: ComplianceConfig;
   /** Their name if you know it. Without it the greeting stays neutral. */
   contactName?: string | null;
   email?: string | null;
@@ -84,6 +95,65 @@ function signalSentence(finding: Finding, host: string): string {
   }
 }
 
+/**
+ * The lines that close an email.
+ *
+ * The personal name is optional — a business can trade under its name alone —
+ * so this drops the line rather than leaving a blank one, and never prints the
+ * same identity twice when the two happen to match.
+ *
+ */
+export function signOff(from: SenderConfig): string[] {
+  const lines: string[] = [];
+  if (from.name) lines.push(from.name);
+  if (from.business && from.business !== from.name) lines.push(from.business);
+  lines.push(from.email);
+  return lines;
+}
+
+/**
+ * Everything below the last sentence: who sent this, why they have your
+ * address, and how to make it stop.
+ *
+ * Resolving the compliance settings here rather than at send time is
+ * deliberate. An email that cannot lawfully be sent should never come into
+ * existence as a draft, because a draft that exists is a draft somebody
+ * eventually sends.
+ */
+export function closing(
+  from: SenderConfig,
+  host: string,
+  compliance: ComplianceConfig = complianceConfig(),
+): string[] {
+  // When the mail client appends a signature carrying the same identity and
+  // opt-out, repeating them here puts the address in the email twice. The
+  // provenance line stays either way: it is specific to this recipient, so a
+  // fixed signature cannot express it.
+  if (signatureInClient()) return [provenanceLine(host)];
+
+  return [
+    ...signOff(from),
+    '',
+    provenanceLine(host),
+    ...complianceFooter(from, compliance),
+  ];
+}
+
+/**
+ * Whether the mail client supplies the signature.
+ *
+ * Defaults to false, and deliberately so. If this were on by default, a draft
+ * would omit the footer for anyone who had not yet installed the signature —
+ * and the resulting email would be missing the two things it is legally
+ * required to carry, with nothing anywhere to indicate that.
+ *
+ * Wrong in the default direction costs a duplicated address. Wrong in the
+ * other direction costs a complaint.
+ */
+export function signatureInClient(): boolean {
+  return process.env.AUDIT_SIGNATURE_IN_CLIENT?.trim().toLowerCase() === 'true';
+}
+
 export function draftFirstEmail(audit: SiteAudit, options: DraftOptions = {}): EmailDraft | null {
   const from = options.from ?? sender;
   const host = hostOf(audit.finalUrl);
@@ -100,7 +170,7 @@ export function draftFirstEmail(audit: SiteAudit, options: DraftOptions = {}): E
 
   const others =
     serious > 1
-      ? `\n\nThere are ${serious - 1} other ${serious - 1 === 1 ? 'thing' : 'things'} in the same vein. I put the lot in a short report — it's attached, and it says what each one is costing you and how to fix it.`
+      ? `\n\nThere ${serious - 1 === 1 ? 'is' : 'are'} ${serious - 1} other ${serious - 1 === 1 ? 'thing' : 'things'} in the same vein. I put everything in a short report — it's attached, and it says what each one is costing you and how to fix it.`
       : `\n\nI wrote up what I found in a short report — it's attached, and it says how to fix it.`;
 
   const body = [
@@ -114,11 +184,9 @@ export function draftFirstEmail(audit: SiteAudit, options: DraftOptions = {}): E
     '',
     "There's nothing to buy here. If it's useful, use it — your own developer can action the whole list. If you'd rather someone just did it, that's what I do, and I'm happy to talk.",
     '',
-    'Either way, no follow-up sales pitch from me.',
+    "Either way, I'll send one short follow-up and then leave you alone.",
     '',
-    from.name,
-    from.business,
-    from.email,
+    ...closing(from, host, options.compliance),
   ].join('\n');
 
   return { to: options.email ?? null, subject, body, signal: signal.ruleId, step: 1 };
@@ -163,8 +231,7 @@ export function draftFollowUp(audit: SiteAudit, options: DraftOptions = {}): Ema
     '',
     "Worth a look whether or not you want anything from me; the fixes are all written out. If it's not relevant, no problem at all and I won't chase it again.",
     '',
-    from.name,
-    from.email,
+    ...closing(from, host, options.compliance),
   ].join('\n');
 
   return {

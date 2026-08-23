@@ -1,7 +1,8 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { funnel, rows, type Snapshot } from './collect';
-import type { SiteAudit } from '../lib/types';
+import type { Finding, SiteAudit } from '../lib/types';
+import { qualify } from '../outreach/qualify';
 
 function audit(url: string, opportunity = 70): SiteAudit {
   return {
@@ -114,4 +115,36 @@ test('an empty pipeline reports zeroes rather than throwing', () => {
     [0, 0, 0, 0, 0, 0],
   );
   assert.deepEqual(rows(snapshot()), []);
+});
+
+/** Like `audit`, but with a finding — qualification drops audits that have none. */
+function auditWithFinding(url: string, over: Partial<SiteAudit> = {}): SiteAudit {
+  const finding: Finding = {
+    ruleId: 'contact-method',
+    severity: 'critical',
+    category: 'conversion',
+    title: 'No contact method',
+    detail: 'd',
+    impact: 'i',
+    fix: 'f',
+  };
+  return { ...audit(url, 90), findings: [finding], ...over };
+}
+
+test('the dashboard and the drafter agree on who is worth contacting', () => {
+  // These had drifted: the dashboard counted opportunity >= 40 and reported 15
+  // while the drafter, applying disqualifiers, wrote 11 drafts. A dashboard
+  // whose whole purpose is to be the single view of the pipeline cannot carry
+  // its own definition of the funnel.
+  const audits = [
+    auditWithFinding('https://good.com/'),
+    auditWithFinding('https://blocked.com/', { status: 403, loadMs: 120, opportunityScore: 99 }),
+    auditWithFinding('https://chain.com/locations/x/', { opportunityScore: 95 }),
+    auditWithFinding('https://dull.com/', { opportunityScore: 5 }),
+  ];
+  const f = funnel(snapshot({ audits }));
+
+  assert.equal(f.audited, 4);
+  assert.equal(f.worthContacting, 1, 'only good.com survives qualification');
+  assert.equal(f.worthContacting, qualify(audits).contact.length);
 });
