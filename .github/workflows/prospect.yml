@@ -1,0 +1,181 @@
+name: Find prospects
+
+# Twice a day, work a different Northern Virginia town and leave a ranked
+# shortlist waiting.
+#
+# What this deliberately does NOT do is draft or send anything. Discovery and
+# auditing need the live network, which is why they run here; drafting carries
+# a real postal address and this repository is public, and sending is a human
+# decision. The job's output is a list of names and a reason to contact each
+# one — the last mile stays manual on purpose.
+on:
+  schedule:
+    # 05:40 and 15:40 UTC — early morning and late morning on the US east
+    # coast. Off the hour because scheduled jobs at :00 queue behind everyone
+    # else's and get delayed.
+    - cron: '40 5 * * *'
+    - cron: '40 15 * * *'
+  workflow_dispatch:
+    inputs:
+      what:
+        description: 'Trade (blank = whatever the rotation says today)'
+        default: ''
+      where:
+        description: 'Town (blank = whatever the rotation says today)'
+        default: ''
+      limit:
+        description: 'Maximum businesses to look at'
+        default: '40'
+
+permissions:
+  contents: write
+
+# Two runs must never update the ledger at once: the loser's discoveries would
+# be silently dropped from a force-push, and the businesses in them would be
+# found again tomorrow as if new.
+concurrency:
+  group: prospecting
+  cancel-in-progress: false
+
+jobs:
+  prospect:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: audit
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: audit/package-lock.json
+
+      - run: npm ci
+
+      # Its own branch, not live-data. The audits published there are replaced
+      # wholesale on every run, so a ledger sharing that branch would be
+      # deleted by the next publish and every business rediscovered as new.
+      - name: Fetch the ledger of businesses already seen
+        working-directory: .
+        run: |
+          set -e
+          git fetch --depth 1 origin prospect-ledger 2>/dev/null || true
+          if git show FETCH_HEAD:seen-hosts.txt > seen-hosts.txt 2>/dev/null; then
+            echo "ledger: $(grep -vc '^#' seen-hosts.txt || echo 0) businesses already seen"
+          else
+            printf '# Businesses already discovered. One host per line.\n' > seen-hosts.txt
+            echo "ledger: none yet, starting one"
+          fi
+
+      - name: Decide today's town and trade
+        id: target
+        run: npm run rotate
+
+      - name: Find businesses
+        id: find
+        env:
+          WHAT: ${{ github.event.inputs.what || steps.target.outputs.what }}
+          WHERE: ${{ github.event.inputs.where || steps.target.outputs.where }}
+          COUNTRY: ${{ steps.target.outputs.country }}
+          LIMIT: ${{ github.event.inputs.limit || '40' }}
+        run: |
+          set -e
+          echo "label=$WHAT in $WHERE" >> "$GITHUB_OUTPUT"
+          npm run find -- --what "$WHAT" --where "$WHERE" --country "$COUNTRY" --limit "$LIMIT"
+
+      # A town whose businesses have all been seen is the normal end state, not
+      # a failure — every town reaches it eventually. Exit 3 says so, and the
+      # rest of the job is skipped rather than producing an artifact and a
+      # shortlist that contain nobody new.
+      - name: Drop businesses already seen
+        id: sift
+        run: |
+          set +e
+          npm run sift -- --seen "$GITHUB_WORKSPACE/seen-hosts.txt"
+          code=$?
+          set -e
+          if [ "$code" -eq 3 ]; then
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "### Nothing new in ${{ steps.find.outputs.label }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "Every business found here has been seen on an earlier run." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          [ "$code" -eq 0 ] || exit "$code"
+          echo "fresh=true" >> "$GITHUB_OUTPUT"
+
+      - name: Audit the new ones
+        if: steps.sift.outputs.fresh == 'true'
+        run: npm run audit -- --list out/prospects.txt --concurrency 2
+
+      - name: Rank them
+        if: steps.sift.outputs.fresh == 'true'
+        env:
+          RUN_LABEL: ${{ steps.find.outputs.label }}
+        run: npm run shortlist
+
+      - name: Export the top audits for local drafting
+        if: steps.sift.outputs.fresh == 'true'
+        run: |
+          node -e "
+            const fs = require('fs');
+            const all = JSON.parse(fs.readFileSync('out/audits.json', 'utf8'));
+            const top = all
+              .filter(a => !a.error)
+              .sort((a, b) => b.opportunityScore - a.opportunityScore)
+              .slice(0, 15);
+            fs.writeFileSync('out/audits-top.json', JSON.stringify(top));
+            console.error('exported ' + top.length + ' of ' + all.length);
+          "
+
+      # The ledger is written even when nothing was fresh, because the run
+      # still confirms those businesses exist and were considered. A town that
+      # has been exhausted must stay exhausted.
+      - name: Update the ledger
+        if: always() && steps.sift.conclusion == 'success'
+        working-directory: .
+        run: |
+          set -e
+          work=$(mktemp -d)
+          cp seen-hosts.txt "$work/"
+          cd "$work"
+          git init -q -b prospect-ledger
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add -A
+          git commit -q -m "Seen after ${{ steps.find.outputs.label }} (run ${{ github.run_id }})"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" \
+            HEAD:refs/heads/prospect-ledger
+          echo "ledger now holds $(grep -vc '^#' seen-hosts.txt || echo 0) businesses"
+
+      # Only the audits: URLs and findings, which are public facts about public
+      # websites. Names and phone numbers stay in the artifact, which is
+      # access-controlled.
+      - name: Publish the audits for local drafting
+        if: steps.sift.outputs.fresh == 'true'
+        run: |
+          set -e
+          work=$(mktemp -d)
+          cp out/audits-top.json "$work/"
+          cd "$work"
+          git init -q -b live-data
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add -A
+          git commit -q -m "Audits from ${{ steps.find.outputs.label }} (run ${{ github.run_id }})"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" \
+            HEAD:refs/heads/live-data
+
+      - uses: actions/upload-artifact@v5
+        if: steps.sift.outputs.fresh == 'true'
+        with:
+          name: prospects-${{ github.run_id }}
+          path: |
+            audit/out/shortlist.md
+            audit/out/prospects.csv
+            audit/out/leads.md
+            audit/out/audits.json
+          retention-days: 30
