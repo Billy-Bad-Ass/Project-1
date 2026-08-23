@@ -11,6 +11,7 @@ import {
   testimonialsHtml,
 } from '../report/proof';
 import { guideHtml, GUIDE_CSS } from '../report/guide';
+import { PAGES, robotsTxt, sitemapXml, socialTags } from '../report/head';
 
 /**
  * Builds the sales site by substituting real values into the templates.
@@ -168,10 +169,24 @@ async function main(): Promise<void> {
   const files = await readdir(SRC);
   let built = 0;
 
+  // Only set once a domain exists. Absent, the social and canonical tags are
+  // omitted rather than emitted pointing at nothing, and no sitemap is written
+  // — a sitemap of relative URLs is not a sitemap.
+  const origin = process.env.SITE_ORIGIN?.trim();
+
   for (const file of files) {
     if (file.endsWith('.html')) {
       const html = await readFile(join(SRC, file), 'utf8');
-      const output = applyAll(html, subs);
+      const page = PAGES.find((candidate) => candidate.file === file);
+      const output = applyAll(html, [
+        ...subs,
+        {
+          token: 'SOCIAL_TAGS',
+          value: page ? socialTags(origin, page) : '',
+          required: false,
+          hint: 'SITE_ORIGIN',
+        },
+      ]);
 
       // A placeholder surviving into the output means a dead link or a blank
       // price on the live page, so fail rather than publish it.
@@ -189,8 +204,14 @@ async function main(): Promise<void> {
     }
   }
 
+  if (origin) {
+    await writeFile(join(OUT, 'sitemap.xml'), sitemapXml(origin), 'utf8');
+    await writeFile(join(OUT, 'robots.txt'), robotsTxt(origin), 'utf8');
+  }
+
   process.stdout.write(
     `Built ${built} page(s) into out/site\n` +
+      (origin ? `  origin     -> ${origin}\n` : '  origin     -> not set; no canonical, social or sitemap\n') +
       `  buy button -> ${link}\n` +
       `  price      -> ${process.env.PRICE_DISPLAY}\n\n` +
       `Upload out/site to any static host (Cloudflare Pages, Netlify, GitHub Pages).\n`,
