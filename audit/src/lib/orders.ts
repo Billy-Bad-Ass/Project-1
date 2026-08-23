@@ -98,23 +98,47 @@ export function toOrder(session: Stripe.Checkout.Session): Order {
   };
 }
 
+/** Raised when a query would sweep in products this business does not sell. */
+export class UnscopedOrderQuery extends Error {
+  constructor() {
+    super(
+      `Refusing to list orders without a payment link to scope them to.\n\n` +
+        `A Stripe account can carry more than one business, and this one does:\n` +
+        `the printable-guides storefront sells through the same account. An\n` +
+        `unscoped query returns those sales too, and the next step after this\n` +
+        `one emails every buyer a website audit they did not order.\n\n` +
+        `Set STRIPE_PAYMENT_LINK_ID to the audit product's link (plink_...),\n` +
+        `or pass allowEveryProduct: true if you genuinely mean every sale.\n`,
+    );
+    this.name = 'UnscopedOrderQuery';
+  }
+}
+
 /**
- * Every paid, completed Checkout Session.
+ * Every paid, completed Checkout Session for the audit product.
  *
  * Filters on payment_status rather than status: a session can be "complete"
  * while payment is still pending for slower methods like bank debits, and
  * delivering work before the money clears is how you end up doing it free.
+ *
+ * Scoping to one payment link is required rather than optional. It was
+ * optional, and that was only safe while the Stripe account sold exactly one
+ * thing — an assumption nothing enforced and nothing announced when it stopped
+ * being true.
  */
 export async function fetchPaidOrders(
   stripe: Stripe,
-  options: { paymentLinkId?: string; limit?: number } = {},
+  options: { paymentLinkId?: string; limit?: number; allowEveryProduct?: boolean } = {},
 ): Promise<Order[]> {
+  const linkId = options.paymentLinkId?.trim() || process.env.STRIPE_PAYMENT_LINK_ID?.trim();
+  if (!linkId && !options.allowEveryProduct) throw new UnscopedOrderQuery();
+
   const orders: Order[] = [];
   const params: Stripe.Checkout.SessionListParams = {
     limit: 100,
     expand: ['data.customer_details'],
   };
-  if (options.paymentLinkId) params.payment_link = options.paymentLinkId;
+  if (linkId) params.payment_link = linkId;
 
   const max = options.limit ?? 200;
 

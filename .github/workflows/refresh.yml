@@ -118,10 +118,16 @@ jobs:
           AUDIT_SENDER_EMAIL: ${{ secrets.AUDIT_SENDER_EMAIL }}
           AUDIT_OPT_OUT_REPLY: 'Reply "stop" to this email and I will never contact you again.'
           AUDIT_LOCALE: en-US
-          # The domain is on every page, so it is a default here rather than a
-          # secret or a setting somebody has to remember to add. The repo
-          # variable stays as an override for a staging host.
-          SITE_ORIGIN: ${{ vars.AUDIT_SITE_ORIGIN || 'https://bbanetwork.org' }}
+          # No default, deliberately. bbanetwork.org already serves a different
+          # business — the printable-guides storefront — so defaulting to it
+          # made this site claim that storefront's homepage as its own
+          # canonical URL, which invites search engines to treat two unrelated
+          # businesses as one page.
+          #
+          # Set AUDIT_SITE_ORIGIN once the audit site has a hostname of its
+          # own. Unset, the canonical, Open Graph and sitemap output is omitted
+          # rather than pointed somewhere untrue.
+          SITE_ORIGIN: ${{ vars.AUDIT_SITE_ORIGIN }}
         run: |
           set -e
           missing=""

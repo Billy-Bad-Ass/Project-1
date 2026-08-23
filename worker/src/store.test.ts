@@ -94,6 +94,7 @@ test('an entry whose metadata is missing is recovered, not dropped', async () =>
 });
 
 const ORDER: StripeOrder = {
+  matchedProduct: true,
   eventId: 'evt_1',
   sessionId: 'cs_1',
   email: 'buyer@example.com',

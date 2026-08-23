@@ -147,3 +147,42 @@ test('an order with no site is still an order', () => {
   assert.equal(order.site, null);
   assert.equal(order.email, null);
 });
+
+// --- product scoping ---------------------------------------------------------
+
+const LINKED = JSON.stringify({
+  id: 'evt_link',
+  type: 'checkout.session.completed',
+  created: NOW,
+  data: { object: { id: 'cs_link', payment_link: 'plink_audit' } },
+});
+
+test("another product's sale on the same account is not an audit order", () => {
+  // The failure this prevents is concrete: this Stripe account also serves a
+  // printable-guides storefront, and checkout.session.completed fires for it
+  // too. Without the filter a guide buyer is recorded as an audit customer,
+  // and the pipeline sends them a website report they never bought.
+  const other = JSON.parse(LINKED) as { data: { object: Record<string, unknown> } };
+  other.data.object['payment_link'] = 'plink_guides';
+  assert.equal(orderFromEvent(other, 'plink_audit'), null);
+});
+
+test('the audit product is recognised and marked as matched', () => {
+  const order = orderFromEvent(JSON.parse(LINKED), 'plink_audit');
+  assert.ok(order);
+  assert.equal(order.matchedProduct, true);
+});
+
+test('a session with no payment link is not mistaken for ours', () => {
+  // An invoice or a dashboard-created payment carries no payment_link at all.
+  const bare = JSON.parse(PAYLOAD) as unknown;
+  assert.equal(orderFromEvent(bare, 'plink_audit'), null);
+});
+
+test('with no filter configured the order is kept but flagged, not silently trusted', () => {
+  // Dropping it would lose a real sale; trusting it would send a stranger a
+  // report. Recording it unmatched leaves the decision to fulfilment.
+  const order = orderFromEvent(JSON.parse(LINKED));
+  assert.ok(order);
+  assert.equal(order.matchedProduct, false);
+});
