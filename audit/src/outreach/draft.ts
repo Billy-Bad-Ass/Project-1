@@ -4,9 +4,11 @@ import { sender, type SenderConfig } from '../report/config';
 import {
   complianceConfig,
   complianceFooter,
+  optOutLine,
   provenanceLine,
   type ComplianceConfig,
 } from './compliance';
+import { unsubscribeLinkFor } from './unsubscribe';
 
 /**
  * Drafts outreach email from a site's real findings.
@@ -125,17 +127,30 @@ export function closing(
   host: string,
   compliance: ComplianceConfig = complianceConfig(),
 ): string[] {
+  // A per-recipient opt-out link, when one is configured, replaces the generic
+  // instruction. It is strictly better for the recipient — one click rather
+  // than composing a reply and hoping somebody reads it.
+  const link = unsubscribeLinkFor(host);
+  const config: ComplianceConfig = link
+    ? { ...compliance, optOut: { kind: 'url', url: link } }
+    : compliance;
+
   // When the mail client appends a signature carrying the same identity and
-  // opt-out, repeating them here puts the address in the email twice. The
-  // provenance line stays either way: it is specific to this recipient, so a
-  // fixed signature cannot express it.
-  if (signatureInClient()) return [provenanceLine(host)];
+  // opt-out, repeating them here puts the address in the email twice.
+  //
+  // Two things survive that branch regardless. The provenance line is specific
+  // to this recipient, and the unsubscribe link is specific to this recipient,
+  // so a fixed signature cannot express either — dropping the link here would
+  // silently downgrade every email to the reply-only opt-out.
+  if (signatureInClient()) {
+    return link ? [provenanceLine(host), '', optOutLine(config.optOut)] : [provenanceLine(host)];
+  }
 
   return [
     ...signOff(from),
     '',
     provenanceLine(host),
-    ...complianceFooter(from, compliance),
+    ...complianceFooter(from, config),
   ];
 }
 

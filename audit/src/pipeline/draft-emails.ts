@@ -4,7 +4,11 @@ import { draftFirstEmail, draftFollowUp, signalSpread, type EmailDraft } from '.
 import { reportSlug } from '../lib/slug';
 import type { SiteAudit } from '../lib/types';
 import { complianceConfig, MissingComplianceConfig } from '../outreach/compliance';
-import { loadSuppressed, partitionSuppressed } from '../outreach/suppression';
+import { partitionSuppressed } from '../outreach/suppression';
+import {
+  loadSuppressedForSending,
+  SuppressionUnavailable,
+} from '../outreach/remote-suppression';
 import { qualify, TIER_ADVICE } from '../outreach/qualify';
 
 /**
@@ -81,11 +85,30 @@ async function main(): Promise<void> {
 
   // Checked before drafting, not before sending. A draft that should not exist
   // is a draft somebody eventually sends by accident.
-  const suppressed = await loadSuppressed();
+  //
+  // When a shared store is configured this reads it as well as the local file,
+  // and refuses to continue if it cannot. That refusal is the point: a shared
+  // list that is configured but unreachable is exactly the state in which
+  // carrying on looks fine and emails somebody who asked to be left alone.
+  let list;
+  try {
+    list = await loadSuppressedForSending();
+  } catch (error) {
+    if (error instanceof SuppressionUnavailable) {
+      process.stderr.write(`${error.message}\n`);
+      process.exitCode = 1;
+      return;
+    }
+    throw error;
+  }
+  if (list.source === 'local+shared') {
+    log(`Suppression list: ${list.entries.size} (${list.sharedCount ?? 0} from the shared store)`);
+  }
+
   const { allowed, blocked } = partitionSuppressed(
     eligible,
     (a: SiteAudit) => a.finalUrl,
-    suppressed,
+    list.entries,
   );
   if (blocked.length > 0) {
     log(`Skipped ${blocked.length} suppressed business(es):`);
