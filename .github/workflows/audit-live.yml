@@ -36,6 +36,8 @@ jobs:
   # the manual work, so it needs testing against the live service.
   discover:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: audit
@@ -107,11 +109,33 @@ jobs:
             fs.writeFileSync('out/audits-top.json', JSON.stringify(top));
             console.error('exported ' + top.length + ' of ' + all.length);
           "
-          echo '===AUDITS_B64_BEGIN==='
-          gzip -9 -c out/audits-top.json | base64 -w 200
-          echo '===AUDITS_B64_END==='
         env:
           TOP: ${{ github.event.inputs.top || '15' }}
+
+      # Published to a dedicated branch rather than printed, because a log is a
+      # transcription problem: 10KB of base64 read back by eye corrupts, and a
+      # corrupted audit set drafts confident emails about the wrong findings.
+      # A branch is fetched byte-for-byte or not at all.
+      #
+      # Only the audits go: URLs and findings, which are public facts about
+      # public websites. The prospect CSV carries names and phone numbers and
+      # stays in the access-controlled artifact instead.
+      - name: Publish audits to the live-data branch
+        run: |
+          set -e
+          work=$(mktemp -d)
+          cp out/audits-top.json "$work/"
+          cd "$work"
+          git init -q -b live-data
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add -A
+          git commit -q -m "Audits from run ${{ github.run_id }} (${{ github.event.inputs.what || 'dentist' }} in ${{ github.event.inputs.where || 'Fairfax' }})"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" \
+            HEAD:refs/heads/live-data
+          echo "Published to the live-data branch."
+          echo "Locally: git fetch origin live-data && git show origin/live-data:audits-top.json > audit/out/audits.json"
 
       - uses: actions/upload-artifact@v5
         with:
