@@ -19,7 +19,11 @@
     "signature": "tsx src/pipeline/build-signature.ts",
     "shots": "tsx src/pipeline/build-shots.ts",
     "orders": "tsx src/pipeline/check-orders.ts",
-    "suppress": "tsx src/pipeline/sync-suppression.ts"
+    "suppress": "tsx src/pipeline/sync-suppression.ts",
+    "rotate": "tsx src/pipeline/rotate.ts",
+    "sift": "tsx src/pipeline/sift.ts",
+    "shortlist": "tsx src/pipeline/shortlist.ts",
+    "send": "tsx src/pipeline/send-emails.ts"
   },
   "dependencies": {
     "node-html-parser": "^6.1.13",

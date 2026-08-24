@@ -1,0 +1,327 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "BBA Network \u2014 Website Health Check",
+    "output": "business-map.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "finding-people",
+        "label": "Finding people to contact",
+        "focus": [
+          "osm",
+          "discover",
+          "audit",
+          "qualify",
+          "ledger"
+        ],
+        "note": "Runs twice daily unattended. Discovery skips every business already in the shared store, so it never finds the same practice twice."
+      },
+      {
+        "id": "reaching-them",
+        "label": "Reaching them",
+        "focus": [
+          "ledger",
+          "draft",
+          "operator",
+          "prospect"
+        ],
+        "note": "The only manual step, deliberately. Nothing sends by itself, and drafting refuses to run if it cannot read the opt-out list."
+      },
+      {
+        "id": "getting-paid",
+        "label": "Getting paid and delivering",
+        "focus": [
+          "prospect",
+          "site",
+          "stripe",
+          "worker",
+          "fulfil"
+        ],
+        "note": "Payment triggers fulfilment through the Worker rather than being polled for. The report goes to the same business, now a customer."
+      },
+      {
+        "id": "leaving-you-alone",
+        "label": "Opting out",
+        "focus": [
+          "prospect",
+          "worker",
+          "ledger"
+        ],
+        "note": "One click writes an opt-out that is never removed. Opening the link does nothing; only submitting does, as mail clients prefetch URLs."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "osm",
+      "type": "external",
+      "label": "OpenStreetMap",
+      "sublabel": "Overpass API \u00b7 free",
+      "pos": [
+        40,
+        90
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "discover",
+      "type": "backend",
+      "label": "Discovery",
+      "sublabel": "one town per day",
+      "pos": [
+        300,
+        90
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "audit",
+      "type": "backend",
+      "label": "Audit engine",
+      "sublabel": "22 checks per site",
+      "pos": [
+        560,
+        90
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "qualify",
+      "type": "backend",
+      "label": "Qualification",
+      "sublabel": "who is worth an email",
+      "pos": [
+        820,
+        90
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "ledger",
+      "type": "database",
+      "label": "Shared store",
+      "sublabel": "seen + opted out",
+      "pos": [
+        820,
+        330
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "draft",
+      "type": "backend",
+      "label": "Drafting",
+      "sublabel": "your laptop only",
+      "pos": [
+        560,
+        330
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "operator",
+      "type": "security",
+      "label": "You",
+      "sublabel": "reads it, sends it",
+      "pos": [
+        300,
+        330
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "prospect",
+      "type": "external",
+      "label": "Local business",
+      "sublabel": "dentist, vet, law firm",
+      "pos": [
+        40,
+        330
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "site",
+      "type": "frontend",
+      "label": "Sales page",
+      "sublabel": "audit.bbanetwork.org",
+      "pos": [
+        40,
+        570
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "stripe",
+      "type": "external",
+      "label": "Stripe",
+      "sublabel": "$100, one payment link",
+      "pos": [
+        300,
+        570
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "cloud",
+      "label": "Worker",
+      "sublabel": "webhook \u00b7 unsubscribe",
+      "pos": [
+        560,
+        570
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "fulfil",
+      "type": "backend",
+      "label": "Fulfilment",
+      "sublabel": "report within a day",
+      "pos": [
+        820,
+        570
+      ],
+      "size": [
+        170,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "GitHub Actions \u2014 twice daily, unattended",
+      "wraps": [
+        "discover",
+        "audit",
+        "qualify"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Never in CI \u2014 carries a postal address",
+      "wraps": [
+        "draft",
+        "fulfil"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Cloudflare",
+      "wraps": [
+        "site",
+        "worker"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "osm-discover",
+      "from": "osm",
+      "to": "discover",
+      "label": "with a website"
+    },
+    {
+      "id": "discover-audit",
+      "from": "discover",
+      "to": "audit",
+      "label": "new only",
+      "variant": "emphasis"
+    },
+    {
+      "id": "audit-qualify",
+      "from": "audit",
+      "to": "qualify",
+      "label": "findings"
+    },
+    {
+      "id": "qualify-ledger",
+      "from": "qualify",
+      "to": "ledger",
+      "label": "record found",
+      "labelDy": 40
+    },
+    {
+      "id": "ledger-draft",
+      "from": "ledger",
+      "to": "draft",
+      "label": "shortlist",
+      "variant": "emphasis"
+    },
+    {
+      "id": "draft-operator",
+      "from": "draft",
+      "to": "operator",
+      "label": "never sent"
+    },
+    {
+      "id": "operator-prospect",
+      "from": "operator",
+      "to": "prospect",
+      "label": "you send",
+      "variant": "emphasis"
+    },
+    {
+      "id": "prospect-site",
+      "from": "prospect",
+      "to": "site",
+      "label": "follows up",
+      "labelDy": 40
+    },
+    {
+      "id": "site-stripe",
+      "from": "site",
+      "to": "stripe",
+      "label": "pays $100"
+    },
+    {
+      "id": "stripe-worker",
+      "from": "stripe",
+      "to": "worker",
+      "label": "signed webhook",
+      "variant": "emphasis"
+    },
+    {
+      "id": "worker-fulfil",
+      "from": "worker",
+      "to": "fulfil",
+      "label": "paid order"
+    }
+  ]
+}

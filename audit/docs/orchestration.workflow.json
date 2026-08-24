@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "BBA Network \u2014 the twice-daily loop",
+    "output": "orchestration.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "unattended",
+        "label": "What runs without you",
+        "focus": [
+          "cron",
+          "discover",
+          "sift",
+          "audit",
+          "ledger"
+        ],
+        "note": "Six steps, twice a day, nobody present. Ends with a ranked shortlist and a ledger entry for every business seen."
+      },
+      {
+        "id": "guards",
+        "label": "Where it refuses",
+        "focus": [
+          "sift",
+          "ledger",
+          "draft"
+        ],
+        "note": "Each guard stops a specific failure: rediscovering the same practice, emailing someone twice, or drafting against a stale opt-out list."
+      },
+      {
+        "id": "handover",
+        "label": "Where you take over",
+        "focus": [
+          "audit",
+          "ledger",
+          "draft"
+        ],
+        "note": "Drafts land in Gmail. Sending needs two explicit flags, because a wrong draft is deleted and a wrong send cannot be recalled."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "schedule",
+      "label": "Schedule"
+    },
+    {
+      "id": "ci",
+      "label": "GitHub Actions \u2014 unattended"
+    },
+    {
+      "id": "guards",
+      "label": "Refuses rather than guesses",
+      "variant": "exception"
+    },
+    {
+      "id": "human",
+      "label": "You"
+    }
+  ],
+  "phases": [
+    {
+      "id": "find",
+      "label": "Find",
+      "fromCol": 0,
+      "toCol": 2
+    },
+    {
+      "id": "assess",
+      "label": "Assess",
+      "fromCol": 3,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "reach",
+      "label": "Reach out",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": [
+    "cron",
+    "discover",
+    "sift",
+    "audit",
+    "ledger",
+    "draft"
+  ],
+  "nodes": [
+    {
+      "id": "cron",
+      "lane": "schedule",
+      "col": 0,
+      "type": "external",
+      "label": "05:40 & 15:40",
+      "sublabel": "twice daily, UTC"
+    },
+    {
+      "id": "discover",
+      "lane": "ci",
+      "col": 1,
+      "type": "backend",
+      "label": "Discover",
+      "sublabel": "one town per day"
+    },
+    {
+      "id": "sift",
+      "lane": "guards",
+      "col": 2,
+      "type": "security",
+      "label": "Drop the seen",
+      "sublabel": "exit 3 if none new"
+    },
+    {
+      "id": "audit",
+      "lane": "ci",
+      "col": 3,
+      "type": "backend",
+      "label": "Audit & rank",
+      "sublabel": "22 checks, then tier"
+    },
+    {
+      "id": "ledger",
+      "lane": "guards",
+      "col": 4,
+      "type": "database",
+      "label": "Ledger",
+      "sublabel": "seen + opted out"
+    },
+    {
+      "id": "draft",
+      "lane": "human",
+      "col": 5,
+      "type": "cloud",
+      "label": "Gmail drafts",
+      "sublabel": "you send, --send --yes"
+    }
+  ],
+  "edges": [
+    {
+      "id": "cron-discover",
+      "from": "cron",
+      "to": "discover",
+      "variant": "default"
+    },
+    {
+      "id": "discover-sift",
+      "from": "discover",
+      "to": "sift",
+      "variant": "default"
+    },
+    {
+      "id": "sift-audit",
+      "from": "sift",
+      "to": "audit",
+      "variant": "default"
+    },
+    {
+      "id": "audit-ledger",
+      "from": "audit",
+      "to": "ledger",
+      "variant": "default"
+    },
+    {
+      "id": "ledger-draft",
+      "from": "ledger",
+      "to": "draft",
+      "variant": "default"
+    }
+  ]
+}

@@ -49,8 +49,17 @@ function toCsv(prospects: Prospect[]): string {
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const rows = [
-    ['name', 'website', 'phone', 'street', 'town', 'postcode', 'osm'],
-    ...prospects.map((p) => [p.name, p.website, p.phone, p.street, p.town, p.postcode, p.osmId]),
+    ['name', 'website', 'email', 'phone', 'street', 'town', 'postcode', 'osm'],
+    ...prospects.map((p) => [
+      p.name,
+      p.website,
+      p.email,
+      p.phone,
+      p.street,
+      p.town,
+      p.postcode,
+      p.osmId,
+    ]),
   ];
   return `${rows.map((r) => r.map(escape).join(',')).join('\n')}\n`;
 }
@@ -112,8 +121,11 @@ async function main(): Promise<void> {
   if (prospects.length > 8) log(`  ... and ${prospects.length - 8} more`);
 
   const withPhone = prospects.filter((p) => p.phone).length;
+  const withEmail = prospects.filter((p) => p.email).length;
   log('');
-  log(`  ${prospects.length} businesses · ${withPhone} with a phone number on file`);
+  log(
+    `  ${prospects.length} businesses · ${withEmail} with an email · ${withPhone} with a phone number`,
+  );
   log('');
   log('  out/prospects.txt   ready to audit');
   log('  out/prospects.csv   names, phones and addresses for when they reply');
