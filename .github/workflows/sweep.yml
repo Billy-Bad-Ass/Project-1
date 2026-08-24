@@ -125,6 +125,48 @@ jobs:
             HEAD:refs/heads/prospect-ledger
           echo "ledger now holds $(grep -vc '^#' seen-hosts.txt || echo 0) businesses"
 
+      # Deliberately after the publish and ledger steps. Drafting refuses to
+      # run without a postal address and an opt-out method, and that refusal
+      # must not cost the discovery work that already succeeded.
+      - name: Write the reports each draft will attach
+        if: steps.sweep.outputs.fresh == 'true'
+        run: npm run report
+
+      # Drafts carry the real postal address, so they go to the artifact and
+      # nowhere else: not to a branch, not to the log. The drafter prints
+      # counts, hostnames and the opening-signal spread — never a body.
+      - name: Draft every one
+        id: draft
+        if: steps.sweep.outputs.fresh == 'true'
+        env:
+          AUDIT_POSTAL_ADDRESS: ${{ secrets.AUDIT_POSTAL_ADDRESS }}
+          AUDIT_SENDER_EMAIL: ${{ secrets.AUDIT_SENDER_EMAIL }}
+          AUDIT_SENDER_BUSINESS: ${{ vars.AUDIT_SENDER_BUSINESS || 'BBA Network' }}
+          AUDIT_OPT_OUT_REPLY: 'Reply "stop" to this email and I will never contact you again.'
+          AUDIT_LOCALE: en-US
+        run: |
+          set -e
+          if [ -z "$AUDIT_POSTAL_ADDRESS" ] || [ -z "$AUDIT_SENDER_EMAIL" ]; then
+            echo "::error::Cannot draft — AUDIT_POSTAL_ADDRESS or AUDIT_SENDER_EMAIL is not set."
+            echo "The audits are published; add the secrets and re-run to draft."
+            exit 1
+          fi
+          npm run draft
+
+      - name: Say how many, without saying what
+        if: steps.sweep.outputs.fresh == 'true'
+        run: |
+          drafted=$(ls out/emails/*.txt 2>/dev/null | wc -l)
+          reports=$(ls out/reports/*.html 2>/dev/null | wc -l)
+          {
+            echo "### $drafted drafts ready"
+            echo ""
+            echo "$reports reports written. Nothing has been sent."
+            echo ""
+            echo "They carry a postal address, so they are in the run artifact"
+            echo "rather than in this log or on a branch."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v5
         if: steps.sweep.outputs.fresh == 'true'
         with:
@@ -134,4 +176,7 @@ jobs:
             audit/out/prospects.csv
             audit/out/leads.md
             audit/out/audits.json
+            audit/out/outreach-drafts.md
+            audit/out/emails/
+            audit/out/reports/
           retention-days: 30

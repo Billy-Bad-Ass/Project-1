@@ -21,6 +21,7 @@ import {
 import { qualify } from '../outreach/qualify';
 import {
   loadSuppressedForSending,
+  remoteStore,
   SuppressionUnavailable,
 } from '../outreach/remote-suppression';
 import { isSuppressed, suppress, suppressionKey } from '../outreach/suppression';
@@ -135,6 +136,25 @@ async function main(): Promise<void> {
       return;
     }
     throw error;
+  }
+
+  // Drafting against an empty opt-out list is harmless — a draft hurts nobody.
+  // Sending against one is the failure this whole system is built to avoid, and
+  // it becomes far more likely the moment there are hundreds of drafts rather
+  // than eleven. So the shared store is optional for drafts and required for
+  // sends: without it, "nobody has opted out" and "I cannot see who opted out"
+  // are the same answer, and only one of them is safe to act on.
+  if (args.send && !remoteStore()) {
+    process.stderr.write(
+      'Refusing to send without the shared opt-out list.\n\n' +
+        'AUDIT_SUPPRESSION_API and AUDIT_SUPPRESSION_TOKEN are not set, so the\n' +
+        'only opt-out record available is the local file — which is empty on a\n' +
+        'fresh machine and in CI. An empty list and an unreadable one look\n' +
+        'identical from here, and sending is not reversible.\n\n' +
+        'Deploy the Worker and set both, or keep using drafts (no --send).\n',
+    );
+    process.exitCode = 1;
+    return;
   }
 
   if (args.send && !args.yes) {
