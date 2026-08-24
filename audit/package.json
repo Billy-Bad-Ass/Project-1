@@ -23,7 +23,8 @@
     "rotate": "tsx src/pipeline/rotate.ts",
     "sift": "tsx src/pipeline/sift.ts",
     "shortlist": "tsx src/pipeline/shortlist.ts",
-    "send": "tsx src/pipeline/send-emails.ts"
+    "send": "tsx src/pipeline/send-emails.ts",
+    "sweep": "tsx src/pipeline/sweep.ts"
   },
   "dependencies": {
     "node-html-parser": "^6.1.13",

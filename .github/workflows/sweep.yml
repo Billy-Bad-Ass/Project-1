@@ -1,0 +1,182 @@
+name: Sweep the whole region
+
+# Every town and every trade in one pass, rather than one town a day.
+#
+# Run this when you want to know how large the market actually is, or to build
+# a full backlog to work through. The scheduled job stays the right tool for a
+# steady drip; this is the one-off.
+#
+# Manual only. It makes 42 queries against a volunteer-run public API and then
+# fetches several hundred strangers' home pages. That is a reasonable thing to
+# do deliberately and an unreasonable thing to do on every push.
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Maximum businesses per town per trade'
+        default: '40'
+      concurrency:
+        description: 'Sites audited at once'
+        default: '3'
+
+permissions:
+  contents: write
+
+# Shares a group with the scheduled job: both write the ledger, and the loser
+# of a race would have its discoveries dropped by the other's force-push.
+concurrency:
+  group: prospecting
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: audit
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: audit/package-lock.json
+
+      - run: npm ci
+
+      - name: Fetch the ledger
+        working-directory: .
+        run: |
+          set -e
+          git fetch --depth 1 origin prospect-ledger 2>/dev/null || true
+          if git show FETCH_HEAD:seen-hosts.txt > seen-hosts.txt 2>/dev/null; then
+            echo "ledger: $(grep -vc '^#' seen-hosts.txt || echo 0) already handled"
+          else
+            printf '# Businesses already discovered. One host per line.\n' > seen-hosts.txt
+            echo "ledger: none yet"
+          fi
+
+      - name: Find everything
+        id: sweep
+        run: |
+          set +e
+          npm run sweep -- --seen "$GITHUB_WORKSPACE/seen-hosts.txt" \
+            --limit "${{ github.event.inputs.limit || '40' }}"
+          code=$?
+          set -e
+          if [ "$code" -eq 3 ]; then
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "### Nothing new anywhere" >> "$GITHUB_STEP_SUMMARY"
+            echo "Every business in the region is already on the ledger." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          [ "$code" -eq 0 ] || exit "$code"
+          echo "fresh=true" >> "$GITHUB_OUTPUT"
+
+      - name: Audit them
+        if: steps.sweep.outputs.fresh == 'true'
+        run: |
+          npm run audit -- --list out/prospects.txt \
+            --concurrency "${{ github.event.inputs.concurrency || '3' }}"
+
+      - name: Rank them
+        if: steps.sweep.outputs.fresh == 'true'
+        env:
+          RUN_LABEL: region sweep
+        run: npm run shortlist
+
+      # The whole file, not the top fifteen. The point of a sweep is to draft
+      # everything worth drafting, and the scheduled job's export is capped for
+      # a different purpose.
+      - name: Publish every audit for local drafting
+        if: steps.sweep.outputs.fresh == 'true'
+        run: |
+          set -e
+          work=$(mktemp -d)
+          cp out/audits.json "$work/audits-all.json"
+          cd "$work"
+          git init -q -b live-data
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add -A
+          git commit -q -m "Region sweep (run ${{ github.run_id }})"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" \
+            HEAD:refs/heads/live-data
+          echo "Locally: git fetch origin live-data && git show origin/live-data:audits-all.json > audit/out/audits.json"
+
+      - name: Update the ledger
+        if: always() && steps.sweep.conclusion == 'success'
+        working-directory: .
+        run: |
+          set -e
+          work=$(mktemp -d)
+          cp seen-hosts.txt "$work/"
+          cd "$work"
+          git init -q -b prospect-ledger
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add -A
+          git commit -q -m "Seen after region sweep (run ${{ github.run_id }})"
+          git push -q --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" \
+            HEAD:refs/heads/prospect-ledger
+          echo "ledger now holds $(grep -vc '^#' seen-hosts.txt || echo 0) businesses"
+
+      # Deliberately after the publish and ledger steps. Drafting refuses to
+      # run without a postal address and an opt-out method, and that refusal
+      # must not cost the discovery work that already succeeded.
+      - name: Write the reports each draft will attach
+        if: steps.sweep.outputs.fresh == 'true'
+        run: npm run report
+
+      # Drafts carry the real postal address, so they go to the artifact and
+      # nowhere else: not to a branch, not to the log. The drafter prints
+      # counts, hostnames and the opening-signal spread — never a body.
+      - name: Draft every one
+        id: draft
+        if: steps.sweep.outputs.fresh == 'true'
+        env:
+          AUDIT_POSTAL_ADDRESS: ${{ secrets.AUDIT_POSTAL_ADDRESS }}
+          AUDIT_SENDER_EMAIL: ${{ secrets.AUDIT_SENDER_EMAIL }}
+          AUDIT_SENDER_BUSINESS: ${{ vars.AUDIT_SENDER_BUSINESS || 'BBA Network' }}
+          AUDIT_OPT_OUT_REPLY: 'Reply "stop" to this email and I will never contact you again.'
+          AUDIT_LOCALE: en-US
+        run: |
+          set -e
+          if [ -z "$AUDIT_POSTAL_ADDRESS" ] || [ -z "$AUDIT_SENDER_EMAIL" ]; then
+            echo "::error::Cannot draft — AUDIT_POSTAL_ADDRESS or AUDIT_SENDER_EMAIL is not set."
+            echo "The audits are published; add the secrets and re-run to draft."
+            exit 1
+          fi
+          npm run draft
+
+      - name: Say how many, without saying what
+        if: steps.sweep.outputs.fresh == 'true'
+        run: |
+          drafted=$(ls out/emails/*.txt 2>/dev/null | wc -l)
+          reports=$(ls out/reports/*.html 2>/dev/null | wc -l)
+          {
+            echo "### $drafted drafts ready"
+            echo ""
+            echo "$reports reports written. Nothing has been sent."
+            echo ""
+            echo "They carry a postal address, so they are in the run artifact"
+            echo "rather than in this log or on a branch."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v5
+        if: steps.sweep.outputs.fresh == 'true'
+        with:
+          name: region-sweep-${{ github.run_id }}
+          path: |
+            audit/out/shortlist.md
+            audit/out/prospects.csv
+            audit/out/leads.md
+            audit/out/audits.json
+            audit/out/outreach-drafts.md
+            audit/out/emails/
+            audit/out/reports/
+          retention-days: 30
