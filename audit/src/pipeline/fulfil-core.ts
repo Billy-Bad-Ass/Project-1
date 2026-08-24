@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { redactEmail } from '../lib/resend';
 import { reportSlug } from '../lib/slug';
 import { renderReport } from '../report/render';
 import type { Order } from '../lib/orders';
@@ -22,6 +23,12 @@ export interface LedgerEntry {
   reportFile: string;
   fulfilledAt: string;
   healthScore: number;
+  /** When the report was emailed to the customer, or null if a human must. */
+  emailedAt?: string | null;
+  /** Resend's message id, for tracing a "never arrived" complaint. */
+  emailId?: string | null;
+  /** Where the report was archived in R2 — never in the public repository. */
+  archivedTo?: string | null;
 }
 
 export type Ledger = Record<string, LedgerEntry>;
@@ -129,19 +136,22 @@ export async function fulfilOrders(
 export function outstandingActions(result: FulfilResult): string[] {
   const actions: string[] = [];
 
+  // Addresses are redacted: this runs on a schedule in a public repository,
+  // where the Actions log is as public as a commit. The session id is enough
+  // to find the full address in Stripe.
   for (const entry of result.delivered) {
     actions.push(
-      `EMAIL the report to ${entry.email ?? '(no email on the order)'} — out/${entry.reportFile}`,
+      `EMAIL the report to ${redactEmail(entry.email)} — out/${entry.reportFile}`,
     );
   }
   for (const order of result.unusable) {
     actions.push(
-      `ASK ${order.email ?? '(no email)'} for their website address — order ${order.sessionId}`,
+      `ASK ${redactEmail(order.email)} for their website address — order ${order.sessionId}`,
     );
   }
   for (const { order, reason } of result.failed) {
     actions.push(
-      `CONTACT ${order.email ?? '(no email)'}: ${order.siteUrl} could not be read (${reason}). ` +
+      `CONTACT ${redactEmail(order.email)}: ${order.siteUrl} could not be read (${reason}). ` +
         `They have paid and are not marked delivered.`,
     );
   }

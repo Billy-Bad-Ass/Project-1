@@ -1,0 +1,69 @@
+name: Fulfil paid orders
+
+# The sales page promises delivery within a working day, and fulfilment used
+# to be a command a person had to remember to run. This runs it every ten
+# minutes instead.
+#
+# Everything that makes an every-ten-minutes schedule safe lives in the
+# pipeline, not here: the ledger of delivered orders is in R2 (a runner's
+# filesystem is thrown away after each run, and this repository is public),
+# "done" means the report was actually emailed, and a failed send is retried
+# on the next run rather than recorded. See audit/src/pipeline/fulfil.ts.
+#
+# What this file contributes is making sure two runs can never overlap — a
+# slow audit plus the next tick is the classic way a customer gets the same
+# report twice.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only show what is waiting; deliver nothing'
+        type: boolean
+        default: false
+
+# One fulfilment run at a time, ever. queued rather than cancelled: killing a
+# run mid-order is how a report gets emailed but never recorded.
+concurrency:
+  group: fulfil
+  cancel-in-progress: false
+
+jobs:
+  fulfil:
+    runs-on: ubuntu-latest
+    # Well under the ten-minute schedule, so a hung site fetch cannot stack
+    # runs behind the concurrency group indefinitely.
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: audit
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: audit/package-lock.json
+
+      - run: npm ci
+
+      # Fails safe on every missing credential:
+      #   no STRIPE_SECRET_KEY               -> clean exit, nothing to do yet
+      #   no CLOUDFLARE_* (ledger in R2)     -> refuses to run, nothing re-sent
+      #   no RESEND_API_KEY                  -> refuses to run, nothing half-done
+      #
+      # STRIPE_SECRET_KEY must be a restricted READ key: nothing in the
+      # pipeline writes to Stripe, and nothing ever should.
+      - name: Fulfil
+        run: npm run fulfil -- ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # No artifacts, deliberately. Delivered reports are a customer's paid-for
+      # property and the archive is the R2 bucket; nothing from out/ leaves
+      # the runner any other way.

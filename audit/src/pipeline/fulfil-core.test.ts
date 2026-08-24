@@ -107,7 +107,7 @@ test('a paid order with no website address is surfaced, never dropped', async ()
   assert.equal(result.delivered.length, 0);
   // Crucially not in the ledger: it is not done.
   assert.equal(Object.keys(ledger).length, 0);
-  assert.match(outstandingActions(result).join('\n'), /ASK owner@paying-customer\.com/);
+  assert.match(outstandingActions(result).join('\n'), /ASK o\*\*\*@paying-customer\.com/);
 });
 
 test('a site that cannot be read is never marked delivered', async () => {
@@ -207,5 +207,5 @@ test('delivery says who to email, because fulfilment does not send', async () =>
     outDir: out,
     audit: async (u) => goodAudit(u),
   });
-  assert.match(outstandingActions(result)[0] ?? '', /EMAIL the report to owner@paying-customer\.com/);
+  assert.match(outstandingActions(result)[0] ?? '', /EMAIL the report to o\*\*\*@paying-customer\.com/);
 });

@@ -1,8 +1,6 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-
 import { fetchPaidOrders, stripeClient } from '../lib/orders';
 import { formatDateTime, formatMoney } from '../lib/locale';
+import { loadLedger } from '../lib/r2-ledger';
 import type { Ledger } from './fulfil-core';
 
 /**
@@ -21,20 +19,19 @@ import type { Ledger } from './fulfil-core';
  * a shell prompt, or a phone shortcut without parsing any output.
  */
 
-const OUT = join(process.cwd(), 'out');
-const LEDGER = join(OUT, 'fulfilled.json');
-
 /** Exit code when a paid order is waiting. Distinct from 1, which means broken. */
 export const WAITING_EXIT_CODE = 10;
 
 const log = (message: string) => process.stdout.write(`${message}\n`);
 
+/**
+ * The ledger lives in R2 now (see lib/r2-ledger.ts) — fulfilment runs on a
+ * schedule with a throwaway filesystem, so a local fulfilled.json would
+ * report every delivered order as still waiting. Reading it needs Cloudflare
+ * auth; without it this asks the question it cannot answer, loudly.
+ */
 async function readLedger(): Promise<Ledger> {
-  try {
-    return JSON.parse(await readFile(LEDGER, 'utf8')) as Ledger;
-  } catch {
-    return {};
-  }
+  return loadLedger();
 }
 
 async function main(): Promise<void> {
