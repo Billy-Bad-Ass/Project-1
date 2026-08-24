@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { CATEGORIES } from '../discover/categories';
 import { discoverProspects } from '../discover/overpass';
 import { loadEnv } from '../lib/env';
 import { AREAS, excludeSeen, mergeSeen, parseSeen, TRADES } from '../outreach/rotation';
@@ -51,6 +52,21 @@ async function main(): Promise<void> {
     throw new Error('--limit must be a whole number from 1 to 200');
   }
   const seenFile = arg('--seen') ?? join(OUT, 'seen-hosts.txt');
+
+  // Checked before a single query goes out. An unknown category is not an
+  // error at the Overpass layer — it just matches nothing — so without this
+  // the run makes its full complement of requests, reports success, and
+  // returns almost nothing. That is exactly what happened the first time.
+  const ids = new Set(CATEGORIES.map((c) => c.id));
+  const unknown = TRADES.filter((t) => !ids.has(t));
+  if (unknown.length > 0) {
+    throw new Error(
+      `Not real categories: ${unknown.join(', ')}\n\n` +
+        `An unknown category returns no results rather than failing, so this\n` +
+        `would have been 42 queries and a cheerful empty answer.\n\n` +
+        `Valid ids:\n  ${CATEGORIES.map((c) => c.id).join(', ')}\n`,
+    );
+  }
 
   let seen: string[] = [];
   try {

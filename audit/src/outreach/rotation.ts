@@ -45,11 +45,27 @@ export const AREAS: readonly string[] = [
 /**
  * Trades that plausibly have a website, money, and nobody in-house to fix it.
  *
- * Deliberately short. Widening the trade list before the first sale would be
- * guessing at which market responds; the town list is the axis worth rotating
- * until there is evidence.
+ * Every entry must be an id from `CATEGORIES`, and a test asserts it. The
+ * first version of this list contained 'veterinarian' and 'law-firm', neither
+ * of which exists — the real ids are 'vet' and 'solicitor'. A region-wide
+ * sweep then ran 42 queries, reported success, and produced three drafts,
+ * because an unknown category returns nothing rather than failing. Green and
+ * empty is the worst outcome available, and it is what an unchecked string
+ * buys you.
+ *
+ * 'solicitor' is UK phrasing for a list otherwise aimed at Virginia; it maps
+ * to `office=lawyer`, which is what US firms are tagged with.
  */
-export const TRADES: readonly string[] = ['dentist', 'veterinarian', 'law-firm'];
+export const TRADES: readonly string[] = [
+  'dentist',
+  'vet',
+  'solicitor',
+  'chiropractor',
+  'optician',
+  'accountant',
+  'physio',
+  'doctor',
+];
 
 /**
  * Days since the epoch, from a date. The unit of rotation.

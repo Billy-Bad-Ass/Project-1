@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
 import { AREAS, dayIndex, excludeSeen, mergeSeen, parseSeen, targetFor, TRADES } from './rotation';
+import { CATEGORIES } from '../discover/categories';
 
 test('both runs on the same day work the same town', () => {
   // The morning run finds the town's businesses; the afternoon run picks up
@@ -146,4 +147,23 @@ test('the ledger is sorted, so its diff between runs is only what is new', () =>
 test('a round trip through the file format is stable', () => {
   const merged = mergeSeen([], ['https://WWW.Acme.com/x', 'b.com']);
   assert.deepEqual(parseSeen(merged.join('\n')), merged);
+});
+
+test('every trade in the rotation is a category discovery can actually query', () => {
+  // This is the test that was missing. The list shipped with 'veterinarian'
+  // and 'law-firm', which are not category ids — so two thirds of a
+  // region-wide sweep queried for something that does not exist, returned
+  // nothing, and reported success. An unknown category is not an error at the
+  // Overpass layer; it is simply an empty result, which looks exactly like a
+  // town with no businesses in it.
+  const ids = new Set(CATEGORIES.map((c) => c.id));
+  for (const trade of TRADES) {
+    assert.ok(ids.has(trade), `"${trade}" is not a category id`);
+  }
+});
+
+test('the rotation covers more than one trade', () => {
+  // A single-trade rotation would exhaust the region and then find nothing
+  // for the rest of time, which reads as "the market is covered".
+  assert.ok(TRADES.length > 1);
 });
