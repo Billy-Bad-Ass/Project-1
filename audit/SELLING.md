@@ -74,10 +74,16 @@ npm run fulfil                              # audit and generate reports
 ```
 
 For each paid order this fetches the customer's site, runs all 22 checks,
-writes the report to `out/delivered/`, and records it in `out/fulfilled.json`
-so it is never done twice. It prints the email address to send each file to.
+emails the report to the customer through Resend, archives it to the R2
+bucket, and records it in the R2 ledger so it is never done twice. The ledger
+lives in R2 rather than a local file because fulfilment also runs on a
+schedule (`.github/workflows/fulfil.yml`, every ten minutes) where the
+filesystem is thrown away after each run — and because customer emails have
+no place in a public repository.
 
-Then attach the HTML (or print it to PDF) and reply to their receipt email.
+Running it by hand therefore needs `RESEND_API_KEY` and Cloudflare auth
+(`wrangler login`, or `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`) as
+well as the Stripe key. `--dry-run` needs only Stripe.
 
 Orders that arrive **without** a usable web address are printed loudly rather
 than skipped — someone has paid, and a silent skip becomes a refund request a

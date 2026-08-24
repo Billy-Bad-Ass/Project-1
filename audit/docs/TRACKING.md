@@ -17,7 +17,7 @@ disagree with them. Nothing to host, nothing to back up, nothing to pay for.
 |---|---|---|
 | `out/prospects.json` | `npm run find` | Names, phones, addresses |
 | `out/audits.json` | `npm run audit` | Findings and scores |
-| `out/fulfilled.json` | `npm run fulfil` | Paid Stripe orders delivered |
+| `out/fulfilled.json` | `npm run fulfil` | Local mirror of the R2 fulfilment ledger (truth lives in R2) |
 | `out/contacts.json` | **you** | Who you emailed, who replied, who paid |
 
 ## The one file you maintain
