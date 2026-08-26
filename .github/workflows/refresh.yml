@@ -26,8 +26,34 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Exposed so the reporting job below can send the same start time the run
+    # actually began at, rather than the time reporting happened to get to.
+    outputs:
+      started: ${{ steps.start.outputs.started }}
     steps:
       - uses: actions/checkout@v5
+
+      - id: start
+        run: echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      # Project 4's console owns the portfolio view. This repository keeps no
+      # run log of its own — it posts what happened and stops. Until now it
+      # posted nothing, so the console showed `dataset-refresh` as never having
+      # run while this job went green every morning.
+      - name: Tell the dashboard a run started
+        uses: ./.github/actions/report-run
+        with:
+          agent: dataset-refresh
+          project_slug: project-1
+          trigger: ${{ github.event_name == 'schedule' && 'cron' || 'manual' }}
+          status: running
+          started_at: ${{ steps.start.outputs.started }}
+          summary: Rebuilding the dataset from live APIs.
+          artifact_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          dashboard_url: ${{ secrets.DASHBOARD_URL }}
+          dashboard_token: ${{ secrets.DASHBOARD_TOKEN }}
+          access_client_id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          access_client_secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
 
       - uses: actions/setup-node@v5
         with:
@@ -203,3 +229,40 @@ jobs:
     steps:
       - id: deploy
         uses: actions/deploy-pages@v4
+
+  # A separate job, and it reports on `deploy` as well as `build`.
+  #
+  # A reporting step at the end of `build` would call the run a success while
+  # the deploy that follows it was still to come — and a rebuilt dataset that
+  # never reaches the site is exactly the failure worth hearing about. The cost
+  # is one extra runner and a checkout; the alternative is a green tick for a
+  # site that did not change.
+  report:
+    needs: [build, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Report the outcome
+        uses: ./.github/actions/report-run
+        with:
+          agent: dataset-refresh
+          project_slug: project-1
+          trigger: ${{ github.event_name == 'schedule' && 'cron' || 'manual' }}
+          started_at: ${{ needs.build.outputs.started }}
+          status: >-
+            ${{ (needs.build.result == 'success' && needs.deploy.result == 'success') && 'ok'
+            || (needs.build.result == 'cancelled' || needs.deploy.result == 'cancelled') && 'skipped'
+            || 'failed' }}
+          summary: >-
+            ${{ (needs.build.result == 'success' && needs.deploy.result == 'success')
+            && 'Dataset rebuilt from live APIs and the site redeployed.'
+            || needs.build.result != 'success'
+            && format('Dataset build {0} — the site was not redeployed and is serving yesterday''s data.', needs.build.result)
+            || format('Dataset rebuilt, but the deploy {0} — the site is still serving yesterday''s data.', needs.deploy.result) }}
+          artifact_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          dashboard_url: ${{ secrets.DASHBOARD_URL }}
+          dashboard_token: ${{ secrets.DASHBOARD_TOKEN }}
+          access_client_id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          access_client_secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}

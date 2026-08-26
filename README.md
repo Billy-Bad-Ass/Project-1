@@ -163,6 +163,15 @@ fine and affiliate approval is the constraint.
 | Secrets `AFF_*` | Your affiliate IDs |
 | Variable `GOOGLE_SITE_VERIFICATION` | Search Console ownership token (see below) |
 | Variable `BING_SITE_VERIFICATION` | Bing Webmaster Tools token |
+| Secret `DASHBOARD_URL` | Project 4's console. Absent, the daily refresh is recorded nowhere |
+| Secret `DASHBOARD_TOKEN` | Must equal the value set on the `bba-heartbeat` Worker |
+| Secret `CF_ACCESS_CLIENT_ID` | Access service token id, ending `.access` — the console sits behind Cloudflare Access |
+| Secret `CF_ACCESS_CLIENT_SECRET` | Its secret. Shown once, at creation |
+
+The last four are how this repository's one agent, `dataset-refresh`, tells the
+portfolio console what it did. Without them the refresh still runs and still
+deploys; the console simply shows the agent as never having reported, which
+looks the same as it never having existed.
 
 ### Getting indexed
 

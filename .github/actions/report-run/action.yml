@@ -1,0 +1,203 @@
+name: Report an agent run
+description: >-
+  POST one agent run to the dashboard, and say plainly what the dashboard did
+  with it. Never fails the job; never reports a failure as a success.
+
+# Why this is an action and not four lines of curl.
+#
+# `refresh.yml` is the only agent this repository runs, and until now it
+# reported nothing at all: Project 4's console showed `dataset-refresh` as
+# never having run, while the job itself went green every morning. A daily job
+# that works and a daily job that does not exist looked identical from the one
+# place anybody checks.
+#
+# Copied from Project 4's dashboard repository, which owns /api/agent-runs,
+# rather than referenced across repositories — a cross-repo `uses:` would make
+# the daily deploy depend on another repository being readable at the moment
+# the job starts.
+#
+# Two rules pull in opposite directions and both have to hold:
+#
+#   1. A reporting problem must never fail the run. This job rebuilds the
+#      dataset and deploys the site; losing a log entry is nothing next to
+#      losing a day's deploy.
+#   2. A reporting problem must never look like success. `curl -sf ... || true`
+#      gets that half wrong, and it is the more expensive half.
+#
+# So: exit 0 always, and annotate loudly on anything that is not a 2xx.
+#
+# The 3xx case is specific and learned the hard way. `curl -f` does NOT fail on
+# a redirect, so a POST that Cloudflare Access answered with a 302 to its login
+# page reads as a success to `curl -sf`. The status code is read directly here
+# and only 2xx counts.
+
+inputs:
+  agent:
+    description: The registry name of the agent, exactly as it appears in Project 4's config/agents.ts.
+    required: true
+  status:
+    description: 'One of: queued, running, ok, failed, skipped.'
+    required: false
+    default: ok
+  trigger:
+    description: 'One of: cron, manual, github, webhook.'
+    required: false
+    default: cron
+  started_at:
+    description: ISO-8601 UTC stamp for when the run began. Defaults to now.
+    required: false
+    default: ''
+  summary:
+    description: One line on what the run did.
+    required: false
+    default: ''
+  artifact_url:
+    description: Where to read the detail — usually the Actions run URL.
+    required: false
+    default: ''
+  project_slug:
+    description: Project the run acted on, or empty for portfolio-wide.
+    required: false
+    default: ''
+  dashboard_url:
+    description: Base URL of the dashboard. Empty is reported as a misconfiguration, not ignored.
+    required: false
+    default: ''
+  dashboard_token:
+    description: Bearer token matching DASHBOARD_TOKEN on the Worker.
+    required: false
+    default: ''
+  access_client_id:
+    description: >-
+      Cloudflare Access service token id. Required once the Worker is behind
+      Access at Worker scope, which covers /api/agent-runs too.
+    required: false
+    default: ''
+  access_client_secret:
+    description: Cloudflare Access service token secret.
+    required: false
+    default: ''
+
+outputs:
+  code:
+    description: The HTTP status code, or 000 if nothing answered.
+    value: ${{ steps.post.outputs.code }}
+  reported:
+    description: '"true" only when the dashboard answered 2xx.'
+    value: ${{ steps.post.outputs.reported }}
+
+runs:
+  using: composite
+  steps:
+    - id: post
+      shell: bash
+      env:
+        AGENT: ${{ inputs.agent }}
+        STATUS: ${{ inputs.status }}
+        TRIGGER: ${{ inputs.trigger }}
+        STARTED_AT: ${{ inputs.started_at }}
+        SUMMARY: ${{ inputs.summary }}
+        ARTIFACT_URL: ${{ inputs.artifact_url }}
+        PROJECT_SLUG: ${{ inputs.project_slug }}
+        DASHBOARD_URL: ${{ inputs.dashboard_url }}
+        DASHBOARD_TOKEN: ${{ inputs.dashboard_token }}
+        CF_ACCESS_CLIENT_ID: ${{ inputs.access_client_id }}
+        CF_ACCESS_CLIENT_SECRET: ${{ inputs.access_client_secret }}
+      run: |
+        # No `set -e`: a failed curl must not take the job down with it.
+        set +e
+
+        if [ -z "$DASHBOARD_URL" ]; then
+          echo "code=000" >> "$GITHUB_OUTPUT"
+          echo "reported=false" >> "$GITHUB_OUTPUT"
+          echo "::warning title=Agent run not reported::DASHBOARD_URL is not set, so the '$AGENT' run ($STATUS) was recorded nowhere. The dashboard will show this agent as never having reported. Add DASHBOARD_URL and DASHBOARD_TOKEN under Settings -> Secrets and variables -> Actions."
+          exit 0
+        fi
+
+        # A trailing slash would make the path //api/agent-runs, which Workers
+        # route differently from /api/agent-runs.
+        BASE="${DASHBOARD_URL%/}"
+        STARTED="${STARTED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+
+        # jq rather than string interpolation: a summary containing a quote or
+        # a newline would otherwise produce malformed JSON and a 400 that reads
+        # like a dashboard problem.
+        PAYLOAD=$(jq -nc \
+          --arg agent        "$AGENT" \
+          --arg trigger      "$TRIGGER" \
+          --arg status       "$STATUS" \
+          --arg started_at   "$STARTED" \
+          --arg summary      "$SUMMARY" \
+          --arg artifact_url "$ARTIFACT_URL" \
+          --arg project_slug "$PROJECT_SLUG" \
+          '{agent:$agent, trigger:$trigger, status:$status, started_at:$started_at}
+           + (if $summary      == "" then {} else {summary:      $summary}      end)
+           + (if $artifact_url == "" then {} else {artifact_url: $artifact_url} end)
+           + (if $project_slug == "" then {} else {project_slug: $project_slug} end)')
+
+        # Shape-check the Access credentials before using them. Their values are
+        # masked in logs, but their LENGTH and format are not secret, and a
+        # malformed pair is indistinguishable from a wrong one at the HTTP
+        # layer — both are just a 302. Cloudflare presents these on a page that
+        # shows the whole header line, so pasting "CF-Access-Client-Id: xxx"
+        # instead of "xxx" is an easy and completely invisible mistake.
+        if [ -n "$CF_ACCESS_CLIENT_ID" ]; then
+          echo "Access client id: ${#CF_ACCESS_CLIENT_ID} chars, secret: ${#CF_ACCESS_CLIENT_SECRET} chars (expected 39 and 64)."
+          case "$CF_ACCESS_CLIENT_ID" in
+            *:*)       echo "::warning title=Access client id looks malformed::CF_ACCESS_CLIENT_ID contains a colon, so the 'CF-Access-Client-Id:' header name was probably pasted in along with the value. Store only the value." ;;
+            *" "*)     echo "::warning title=Access client id looks malformed::CF_ACCESS_CLIENT_ID contains a space." ;;
+            *.access)  echo "Client id ends in .access, as expected." ;;
+            *)         echo "::warning title=Access client id looks malformed::CF_ACCESS_CLIENT_ID does not end in .access." ;;
+          esac
+        fi
+
+        ARGS=(-H 'Content-Type: application/json')
+        [ -n "$DASHBOARD_TOKEN" ] && ARGS+=(-H "Authorization: Bearer $DASHBOARD_TOKEN")
+        if [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ]; then
+          ARGS+=(-H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID")
+          ARGS+=(-H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET")
+        fi
+
+        # The redirect target is captured, not just the code. A 302 from
+        # Cloudflare Access and a 302 from a redirect rule are the same status
+        # with completely different fixes, and the Location header is the only
+        # thing that tells them apart. Reporting "a redirect" without saying
+        # where to is the same failure this action exists to stop.
+        READ=$(curl -s -o /tmp/report-body -w '%{http_code} %{redirect_url}' --max-time 20 \
+                 -X POST "$BASE/api/agent-runs" "${ARGS[@]}" -d "$PAYLOAD")
+        CODE="${READ%% *}"
+        REDIRECT="${READ#* }"
+        [ -z "$CODE" ] && CODE=000
+        echo "code=$CODE" >> "$GITHUB_OUTPUT"
+
+        BODY=$(head -c 400 /tmp/report-body 2>/dev/null)
+
+        # Only a 2xx counts. Everything else is a warning, and the job still
+        # goes on to succeed.
+        if [ "${CODE#2}" != "$CODE" ]; then
+          echo "reported=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "reported=false" >> "$GITHUB_OUTPUT"
+        fi
+
+        case "$CODE" in
+          2*)
+            echo "Reported '$AGENT' ($STATUS) to $BASE — $CODE."
+            ;;
+          3*)
+            # curl does not follow this and -f would not have caught it. A
+            # redirect on a POST to an API is a login page, not a success.
+            echo "::warning title=Dashboard redirected the run::$CODE from $BASE/api/agent-runs, to: ${REDIRECT:-<no Location header>}. A cloudflareaccess.com/cdn-cgi/access URL means Access answered and this runner's service token was not accepted — check the Service Auth policy names the token whose id and secret are in CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET. Any other target means something in front of the Worker is redirecting, most likely a redirect rule on the zone, and Access is not involved at all. The '$AGENT' run was not recorded."
+            ;;
+          401|403)
+            echo "::warning title=Dashboard refused the run::$CODE from $BASE/api/agent-runs. A 401 means DASHBOARD_TOKEN here does not match the Worker's value; a 403 usually means Access rejected the service token. The '$AGENT' run was not recorded. $BODY"
+            ;;
+          000)
+            echo "::warning title=Dashboard did not answer::Nothing answered at $BASE/api/agent-runs — DNS, TLS or a connection timeout, not an HTTP error. The '$AGENT' run was not recorded."
+            ;;
+          *)
+            echo "::warning title=Dashboard rejected the run::$CODE from $BASE/api/agent-runs. The '$AGENT' run was not recorded. $BODY"
+            ;;
+        esac
+
+        exit 0
