@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
 import { AREAS, dayIndex, excludeSeen, mergeSeen, parseSeen, targetFor, TRADES } from './rotation';
+import { findCategory } from '../discover/categories';
 
 test('both runs on the same day work the same town', () => {
   // The morning run finds the town's businesses; the afternoon run picks up
@@ -146,4 +147,35 @@ test('the ledger is sorted, so its diff between runs is only what is new', () =>
 test('a round trip through the file format is stable', () => {
   const merged = mergeSeen([], ['https://WWW.Acme.com/x', 'b.com']);
   assert.deepEqual(parseSeen(merged.join('\n')), merged);
+});
+
+/**
+ * The bug this file did not catch.
+ *
+ * `TRADES` held 'veterinarian' and 'law-firm'. Neither is a category id, and
+ * neither resolved through the alias list either, so `npm run find` exited 1
+ * before making a single query. Three scheduled runs failed that way — 25
+ * August, 26 August twice — and the only outward sign was a red tick nobody
+ * was watching. 28 days out of every 42 were dead.
+ *
+ * The test above asserts the rotation returns a member of TRADES, which it
+ * always did. The two lists were never checked against each other. That is the
+ * hole, and this closes it.
+ */
+test('every trade in the rotation is a real category', () => {
+  for (const trade of TRADES) {
+    assert.ok(
+      findCategory(trade),
+      `TRADES contains "${trade}", which findCategory cannot resolve — ` +
+        `a scheduled run landing on it will exit 1 before querying anything`,
+    );
+  }
+});
+
+test('the words a human would type still resolve', () => {
+  // The ids are canonical, but nobody types "vet" when they mean a veterinary
+  // practice, and `npm run find --what veterinarian` should not be a dead end.
+  for (const spelling of ['veterinarian', 'veterinary', 'law-firm', 'law firm', 'attorney']) {
+    assert.ok(findCategory(spelling), `"${spelling}" should resolve to a category`);
+  }
 });

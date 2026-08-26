@@ -38,7 +38,8 @@ export const CATEGORIES: Category[] = [
   // Healthcare — regulated, cash-generative, often dated sites.
   { id: 'dentist', label: 'Dentists', tags: ['amenity=dentist', 'healthcare=dentist'] },
   { id: 'doctor', label: 'GP and private clinics', tags: ['amenity=doctors', 'healthcare=doctor'] },
-  { id: 'vet', label: 'Veterinary practices', tags: ['amenity=veterinary'] },
+  { id: 'vet', label: 'Veterinary practices', tags: ['amenity=veterinary'],
+    aliases: ['veterinarian', 'veterinarians', 'veterinary', 'animal hospital'] },
   { id: 'optician', label: 'Opticians', tags: ['shop=optician'] },
   { id: 'physio', label: 'Physiotherapists', tags: ['healthcare=physiotherapist'] },
   { id: 'chiropractor', label: 'Chiropractors', tags: ['healthcare=chiropractor'] },
@@ -46,7 +47,8 @@ export const CATEGORIES: Category[] = [
 
   // Professional services — high value per client.
   { id: 'solicitor', label: 'Solicitors', tags: ['office=lawyer'],
-    aliases: ['lawyer', 'lawyers', 'attorney', 'attorneys', 'law firm', 'law firms'] },
+    aliases: ['lawyer', 'lawyers', 'attorney', 'attorneys', 'law firm', 'law firms',
+      'law-firm', 'law-firms'] },
   { id: 'accountant', label: 'Accountants', tags: ['office=accountant'] },
   { id: 'estate-agent', label: 'Estate agents', tags: ['office=estate_agent'],
     aliases: ['realtor', 'realtors', 'real estate', 'real estate agent', 'real estate agents'] },
