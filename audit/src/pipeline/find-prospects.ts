@@ -91,7 +91,14 @@ async function main(): Promise<void> {
   });
 
   if (prospects.length === 0) {
-    process.exitCode = 1;
+    // Exit 3, not 1. A town where the trade is thinly mapped is a normal
+    // outcome of sweeping 42 town-and-trade combinations, not a fault — and
+    // the first scheduled run to land on one went red and stayed red with
+    // nobody able to tell it apart from a real break.
+    //
+    // 3 is the same "nothing to do" code `npm run sift` already uses, so the
+    // workflow reads one convention rather than two.
+    process.exitCode = 3;
     return;
   }
 
