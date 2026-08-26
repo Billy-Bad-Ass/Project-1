@@ -49,7 +49,20 @@ export const AREAS: readonly string[] = [
  * guessing at which market responds; the town list is the axis worth rotating
  * until there is evidence.
  */
-export const TRADES: readonly string[] = ['dentist', 'veterinarian', 'law-firm'];
+/**
+ * The trades worked, as the *canonical category ids* from `discover/categories`.
+ *
+ * They were English words once — 'veterinarian' and 'law-firm' — and neither
+ * resolved. Every scheduled run landing on one died at the first step with
+ * "Unknown business type", which is 28 days out of every 42. Nothing caught it
+ * because the only test asserted the rotation returned something from this
+ * list, which it faithfully did.
+ *
+ * The ids belong here rather than prose. `rotation.test.ts` now resolves every
+ * one of them against the real category list, so a trade that does not exist
+ * fails a test rather than a Tuesday.
+ */
+export const TRADES: readonly string[] = ['dentist', 'vet', 'solicitor'];
 
 /**
  * Days since the epoch, from a date. The unit of rotation.
