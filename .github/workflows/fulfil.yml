@@ -15,7 +15,20 @@ name: Fulfil paid orders
 # report twice.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    # Every 20 minutes, not every 10.
+    #
+    # GitHub runs scheduled workflows on a best-effort basis and deprioritises
+    # frequent ones. Asked for every 10 minutes, this actually ran at intervals
+    # of one to two and a half hours through 2026-08-25/26, and then not at all
+    # for 22 hours. A schedule that is not honoured is worse than a slower one
+    # that is, because the gap between what it claims and what it does is
+    # exactly the size of the surprise.
+    #
+    # The sales page promises delivery within one working day, so 20 minutes is
+    # still an order of magnitude inside the promise. What actually protects it
+    # is the reporting below: the console now knows this agent exists and when
+    # it last ran, so a silence gets noticed by us rather than by a customer.
+    - cron: '*/20 * * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -49,6 +62,28 @@ jobs:
 
       - run: npm ci
 
+      - id: start
+        run: echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      # Project 4's console owns the portfolio view. Until now this job posted
+      # nothing at all, which is how it stopped running for 22 hours on
+      # 2026-08-26 without anything noticing — and this is the only delivery
+      # mechanism for the one product that takes live money.
+      - name: Tell the dashboard a run started
+        uses: ./.github/actions/report-run
+        with:
+          agent: order-fulfilment
+          project_slug: project-1
+          trigger: ${{ github.event_name == 'schedule' && 'cron' || 'manual' }}
+          status: running
+          started_at: ${{ steps.start.outputs.started }}
+          summary: Polling Stripe for paid audits to deliver.
+          artifact_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          dashboard_url: ${{ secrets.DASHBOARD_URL }}
+          dashboard_token: ${{ secrets.DASHBOARD_TOKEN }}
+          access_client_id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          access_client_secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+
       # Fails safe on every missing credential:
       #   no STRIPE_SECRET_KEY               -> clean exit, nothing to do yet
       #   no CLOUDFLARE_* (ledger in R2)     -> refuses to run, nothing re-sent
@@ -63,6 +98,28 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Always runs, whatever the step above did. A fulfilment run that died is
+      # the case the console most needs to hear about, so reporting it must not
+      # be conditional on the thing that failed.
+      - name: Tell the dashboard how it went
+        if: always()
+        uses: ./.github/actions/report-run
+        with:
+          agent: order-fulfilment
+          project_slug: project-1
+          trigger: ${{ github.event_name == 'schedule' && 'cron' || 'manual' }}
+          status: ${{ job.status == 'success' && 'ok' || 'failed' }}
+          started_at: ${{ steps.start.outputs.started }}
+          summary: >-
+            ${{ job.status == 'success'
+                && 'Checked Stripe for paid audits.'
+                || 'Fulfilment run did not complete — paid audits may be undelivered.' }}
+          artifact_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          dashboard_url: ${{ secrets.DASHBOARD_URL }}
+          dashboard_token: ${{ secrets.DASHBOARD_TOKEN }}
+          access_client_id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          access_client_secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
 
       # No artifacts, deliberately. Delivered reports are a customer's paid-for
       # property and the archive is the R2 bucket; nothing from out/ leaves
