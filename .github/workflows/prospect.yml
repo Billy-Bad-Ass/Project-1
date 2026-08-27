@@ -83,7 +83,22 @@ jobs:
         run: |
           set -e
           echo "label=$WHAT in $WHERE" >> "$GITHUB_OUTPUT"
+          set +e
           npm run find -- --what "$WHAT" --where "$WHERE" --country "$COUNTRY" --limit "$LIMIT"
+          code=$?
+          set -e
+          # Exit 3 is "this trade is thinly mapped here" — a normal outcome of
+          # sweeping 42 town-and-trade combinations, and the same code the sift
+          # step uses for "nothing new". A red run for it is indistinguishable
+          # from a real break, which is how three genuine failures went unread.
+          if [ "$code" -eq 3 ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "### Nothing mapped for $WHAT in $WHERE" >> "$GITHUB_STEP_SUMMARY"
+            echo "OpenStreetMap has no businesses of that trade there with a website." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          [ "$code" -eq 0 ] || exit "$code"
+          echo "found=true" >> "$GITHUB_OUTPUT"
 
       # A town whose businesses have all been seen is the normal end state, not
       # a failure — every town reaches it eventually. Exit 3 says so, and the
@@ -91,6 +106,7 @@ jobs:
       # shortlist that contain nobody new.
       - name: Drop businesses already seen
         id: sift
+        if: steps.find.outputs.found == 'true'
         run: |
           set +e
           npm run sift -- --seen "$GITHUB_WORKSPACE/seen-hosts.txt"
