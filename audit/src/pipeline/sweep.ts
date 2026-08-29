@@ -1,7 +1,8 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { discoverProspects } from '../discover/overpass';
+import { discoverProspects, type Prospect } from '../discover/overpass';
+import { writeProspects } from '../discover/prospect-file';
 import { loadEnv } from '../lib/env';
 import { AREAS, excludeSeen, mergeSeen, parseSeen, TRADES } from '../outreach/rotation';
 
@@ -60,7 +61,14 @@ async function main(): Promise<void> {
     log('No ledger yet — everything found will be new.');
   }
 
-  const found: string[] = [];
+  // The whole record, not just the URL.
+  //
+  // This used to keep `p.website` and drop everything else, which quietly cost
+  // two things: `npm run emails` had no prospects.json to fill in, and the
+  // artifact this run uploads promises a prospects.csv that nothing ever
+  // wrote. The names and phone numbers OpenStreetMap did supply were thrown
+  // away at the same time.
+  const found: Prospect[] = [];
   const failures: string[] = [];
   let queries = 0;
 
@@ -83,7 +91,7 @@ async function main(): Promise<void> {
         log(
           `  ${trade.padEnd(13)} ${area.padEnd(14)} ${String(prospects.length).padStart(3)} found · ${withEmail} with an email`,
         );
-        for (const p of prospects) found.push(p.website);
+        for (const p of prospects) found.push(p);
       } catch (error) {
         const why = error instanceof Error ? error.message.split('\n')[0] : String(error);
         log(`  ${trade.padEnd(13)} ${area.padEnd(14)} failed — ${why}`);
@@ -92,7 +100,17 @@ async function main(): Promise<void> {
     }
   }
 
-  const { fresh, skipped } = excludeSeen(found, seen);
+  const foundSites = found.map((p) => p.website);
+  const { fresh, skipped } = excludeSeen(foundSites, seen);
+
+  // excludeSeen also de-duplicates within the batch — OSM lists a chain once
+  // per branch — so the records are selected by the URLs it kept rather than
+  // filtered again here, which would let the two disagree.
+  const freshSet = new Set(fresh);
+  const freshProspects: Prospect[] = [];
+  for (const p of found) {
+    if (freshSet.delete(p.website)) freshProspects.push(p);
+  }
 
   log('');
   log(`${queries} queries · ${found.length} listings · ${skipped} duplicate or already handled`);
@@ -106,14 +124,15 @@ async function main(): Promise<void> {
   }
 
   await mkdir(OUT, { recursive: true });
-  await writeFile(
-    join(OUT, 'prospects.txt'),
-    `${['# Region sweep', `# ${TRADES.join(', ')} across ${AREAS.length} areas`, '', ...fresh].join('\n')}\n`,
-    'utf8',
-  );
+  await writeProspects(freshProspects, [
+    '# Region sweep',
+    `# ${TRADES.join(', ')} across ${AREAS.length} areas`,
+    `# ${freshProspects.length} new, ${freshProspects.filter((p) => p.email).length} with an email from OpenStreetMap.`,
+    '',
+  ]);
   await writeFile(
     seenFile,
-    `# Businesses already discovered. One host per line.\n# Never pruned: a business dropped from here gets approached twice.\n${mergeSeen(seen, found).join('\n')}\n`,
+    `# Businesses already discovered. One host per line.\n# Never pruned: a business dropped from here gets approached twice.\n${mergeSeen(seen, foundSites).join('\n')}\n`,
     'utf8',
   );
 

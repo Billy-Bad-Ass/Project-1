@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { bestContactEmail, contactPageUrl, type ContactEmail } from '../discover/contact-email';
 import { normaliseEmail, type Prospect } from '../discover/overpass';
@@ -184,15 +184,52 @@ function renderReport(outcomes: Outcome[]): string {
   return `${lines.join('\n')}\n`;
 }
 
+/**
+ * The prospect list, however the run that produced it wrote one.
+ *
+ * `prospects.json` is the full record and the normal case. The fallback to the
+ * bare URL list exists because a sweep once wrote only that, and this step
+ * failing took the whole nine-minute run down with it — no ranking, no
+ * artifact — while the ledger still recorded every business as seen, so a
+ * re-run found nothing. Addresses are a bonus; they are not worth a run.
+ */
+async function loadProspects(): Promise<Prospect[]> {
+  try {
+    return await readProspects();
+  } catch {
+    // Fall through to the URL list.
+  }
+
+  try {
+    const raw = await readFile(join(OUT_DIR, 'prospects.txt'), 'utf8');
+    const sites = raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line !== '' && !line.startsWith('#'));
+
+    log('No out/prospects.json — working from the URL list in out/prospects.txt.');
+    return sites.map((website) => ({
+      name: website,
+      website,
+      email: null,
+      phone: null,
+      street: null,
+      town: null,
+      postcode: null,
+      osmId: '',
+    }));
+  } catch {
+    return [];
+  }
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
-  let prospects: Prospect[];
-  try {
-    prospects = await readProspects();
-  } catch {
+  const prospects = await loadProspects();
+  if (prospects.length === 0) {
     throw new Error(
-      'No out/prospects.json to work from.\n\n' +
+      'Nothing to work from — no out/prospects.json and no out/prospects.txt.\n\n' +
         '  npm run find -- --what dentist --where Arlington --country US\n' +
         '  npm run audit -- --list out/prospects.txt\n' +
         '  npm run emails\n',
