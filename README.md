@@ -243,6 +243,8 @@ the sitemap, or noindex pages leaking into it. CI runs it on every push.
 
 ## Licence
 
-MIT for this code. The data sources have their own terms — each adapter
-declares an `attribution` that is rendered in the site footer. Read the terms
-of any API before putting ads on top of it.
+MIT for this code — see [`LICENSE`](LICENSE). The data sources have their own
+terms, which the MIT grant does not touch: each adapter declares an
+`attribution` that is rendered in the site footer, and
+[`NOTICE.md`](NOTICE.md) lists what is currently credited. Read the terms of
+any API before putting ads on top of it.
