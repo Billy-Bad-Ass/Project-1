@@ -125,6 +125,13 @@ jobs:
         if: steps.sift.outputs.fresh == 'true'
         run: npm run audit -- --list out/prospects.txt --concurrency 2
 
+      # After the audit, not before: the fetcher caches every page for 24 hours,
+      # so the homepage this reads is the one the audit just downloaded. It
+      # costs no extra request on any site that already gave one up.
+      - name: Fill in the contact addresses
+        if: steps.sift.outputs.fresh == 'true'
+        run: npm run emails
+
       - name: Rank them
         if: steps.sift.outputs.fresh == 'true'
         env:
@@ -194,4 +201,5 @@ jobs:
             audit/out/prospects.csv
             audit/out/leads.md
             audit/out/audits.json
+            audit/out/contact-emails.md
           retention-days: 30

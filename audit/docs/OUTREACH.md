@@ -4,9 +4,36 @@ The engine finds the signal. You send the email.
 
 ```bash
 npm run audit -- --list prospects.txt   # scan
+npm run emails                           # find each business's contact address
 npm run draft                            # write a draft per prospect
 # read out/outreach-drafts.md, edit, attach the report, send it yourself
 ```
+
+## Where the addresses come from
+
+OpenStreetMap records `contact:email` for almost nobody. The first full sweep
+of Northern Virginia found eight businesses and not one address, so every
+later step ran green and produced nothing anyone could send.
+
+`npm run emails` reads the pages the audit already downloaded and takes the
+address off them. It runs after the scan on purpose: the fetcher caches for 24
+hours, so it usually makes no request at all. Where a homepage has no address
+it will follow **one** same-origin contact page, and only if that site's
+robots.txt permits it.
+
+What it refuses matters more than what it finds:
+
+| Refused | Why |
+|---|---|
+| `logo@2x.png` | a retina asset filename, not an address |
+| `noreply@…` | valid, deliverable-looking, and silently discards everything |
+| `hello@theiragency.com` next to "website by" | the designer who built the site, not the client |
+| addresses inside `<script>` | minified JavaScript is wall-to-wall address-shaped strings |
+| `you@example.com` | a placeholder from an unfinished template |
+
+`out/contact-emails.md` names every address found, where it came from, and why
+that one won — plus every business still without one and the reason. A wrong
+address nobody can explain is how a prospect list becomes a spam complaint.
 
 ## Why it drafts but never sends
 

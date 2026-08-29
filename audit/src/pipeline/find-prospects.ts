@@ -1,7 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { categoryList, findCategory } from '../discover/categories';
-import { discoverProspects, type Prospect } from '../discover/overpass';
+import { discoverProspects } from '../discover/overpass';
+import { writeProspects } from '../discover/prospect-file';
 
 /**
  * Turn "dentists in Bristol" into a prospect list ready to audit.
@@ -13,7 +12,6 @@ import { discoverProspects, type Prospect } from '../discover/overpass';
  * Writes out/prospects.txt, which feeds straight into `npm run audit`.
  */
 
-const OUT = join(process.cwd(), 'out');
 const log = (message: string) => process.stdout.write(`${message}\n`);
 
 function parseArgs(argv: string[]) {
@@ -41,27 +39,6 @@ function parseArgs(argv: string[]) {
   }
 
   return { listOnly: false as const, what, where, limit, country: get('--country') };
-}
-
-function toCsv(prospects: Prospect[]): string {
-  const escape = (v: string | null) => {
-    const s = v ?? '';
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  const rows = [
-    ['name', 'website', 'email', 'phone', 'street', 'town', 'postcode', 'osm'],
-    ...prospects.map((p) => [
-      p.name,
-      p.website,
-      p.email,
-      p.phone,
-      p.street,
-      p.town,
-      p.postcode,
-      p.osmId,
-    ]),
-  ];
-  return `${rows.map((r) => r.map(escape).join(',')).join('\n')}\n`;
 }
 
 async function main(): Promise<void> {
@@ -102,24 +79,16 @@ async function main(): Promise<void> {
     return;
   }
 
-  await mkdir(OUT, { recursive: true });
-
   const header = [
     `# ${category.label} in ${args.where}`,
     `# Found ${prospects.length} with a website, via OpenStreetMap.`,
     `# Feed this to: npm run audit -- --list out/prospects.txt`,
     '',
   ];
-  await writeFile(
-    join(OUT, 'prospects.txt'),
-    `${[...header, ...prospects.map((p) => p.website)].join('\n')}\n`,
-    'utf8',
-  );
 
   // Names, phones and addresses are not needed to audit, but they are exactly
   // what you want in hand when someone replies.
-  await writeFile(join(OUT, 'prospects.csv'), toCsv(prospects), 'utf8');
-  await writeFile(join(OUT, 'prospects.json'), JSON.stringify(prospects, null, 2), 'utf8');
+  await writeProspects(prospects, header);
 
   log('');
   for (const p of prospects.slice(0, 8)) {
@@ -138,6 +107,7 @@ async function main(): Promise<void> {
   log('  out/prospects.csv   names, phones and addresses for when they reply');
   log('');
   log('Next:  npm run audit -- --list out/prospects.txt');
+  log('Then:  npm run emails      to fill in the addresses OSM did not have');
 }
 
 main().catch((error: unknown) => {
