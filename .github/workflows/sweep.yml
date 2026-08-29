@@ -90,6 +90,11 @@ jobs:
       # and not one address anybody could write to.
       - name: Fill in the contact addresses
         if: steps.sweep.outputs.fresh == 'true'
+        # Addresses are a bonus, not the run. This step failing once took a
+        # nine-minute sweep down with it — no ranking, no artifact — while the
+        # ledger still recorded every business as seen, so the re-run found
+        # nothing. Never worth that again.
+        continue-on-error: true
         run: npm run emails
 
       - name: Rank them
