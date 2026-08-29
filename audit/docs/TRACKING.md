@@ -15,7 +15,8 @@ disagree with them. Nothing to host, nothing to back up, nothing to pay for.
 
 | File | Written by | Holds |
 |---|---|---|
-| `out/prospects.json` | `npm run find` | Names, phones, addresses |
+| `out/prospects.json` | `npm run find`, then `npm run emails` | Names, phones, addresses |
+| `out/contact-emails.md` | `npm run emails` | Which address was chosen for each business, and why |
 | `out/audits.json` | `npm run audit` | Findings and scores |
 | `out/fulfilled.json` | `npm run fulfil` | Local mirror of the R2 fulfilment ledger (truth lives in R2) |
 | `out/contacts.json` | **you** | Who you emailed, who replied, who paid |
