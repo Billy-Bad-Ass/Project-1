@@ -121,8 +121,17 @@ export function planUpdates(rows: CsvRow[], clients: CrmRow[]): Plan {
   return plan;
 }
 
+/**
+ * Where the artifact was unpacked.
+ *
+ * Not a relative path, because this runs from `audit/` while the download
+ * lands at the repository root, and a relative guess resolves to a directory
+ * that does not exist — which reads exactly like an empty artifact.
+ */
+const SWEEP = process.env.SWEEP_DIR || 'sweep';
+
 /** Both layouts the artifact has used. */
-const CSV_CANDIDATES = ['sweep/audit/out/prospects.csv', 'sweep/prospects.csv'];
+const CSV_CANDIDATES = [join(SWEEP, 'audit/out/prospects.csv'), join(SWEEP, 'prospects.csv')];
 
 /**
  * The drafts directory, which is where the addresses actually are.
@@ -140,7 +149,7 @@ const CSV_CANDIDATES = ['sweep/audit/out/prospects.csv', 'sweep/prospects.csv'];
  * So the drafts are read as a fallback. A run whose CSV does exist still
  * prefers the CSV, because it carries phone numbers too.
  */
-const DRAFT_DIRS = ['sweep/emails', 'sweep/audit/out/emails'];
+const DRAFT_DIRS = [join(SWEEP, 'emails'), join(SWEEP, 'audit/out/emails')];
 
 const NO_ADDRESS = /^\(.*\)$/;
 

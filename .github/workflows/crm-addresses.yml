@@ -82,6 +82,10 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           DATABASE_ID: ${{ inputs.database_id }}
           APPLY: ${{ inputs.apply }}
+          # Absolute. The download lands at the repository root and this step
+          # runs from audit/, so a relative path finds nothing and looks
+          # identical to an empty artifact.
+          SWEEP_DIR: ${{ github.workspace }}/sweep
         working-directory: audit
         run: |
           npm ci
