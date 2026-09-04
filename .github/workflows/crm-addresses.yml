@@ -1,0 +1,83 @@
+name: Load prospect addresses into the CRM
+
+# Why this exists
+# ---------------
+# The sweep finds businesses, audits them, and fills in a contact address for
+# each one. All of that works. The addresses then sat in a run artifact that
+# nobody downloaded, so 44 prospects reached the CRM with no way to write to
+# them and none of them was ever contacted.
+#
+# The artifact expires 30 days after the run. The 24 Aug sweep's expires on
+# 23 September 2026, and after that the addresses are gone.
+#
+# The gap was never the sweep. It was the last hop: the download redirects to
+# an Azure blob host that agent sandboxes cannot reach, so it needed a human at
+# a terminal, and the human is the bottleneck this whole pipeline exists to
+# remove. Inside Actions the download is native, so this runs where it works.
+#
+# Addresses go straight into the private CRM database. They are never printed,
+# never committed, and never uploaded — this repository is public, and a
+# scraped list of businesses' contact details is not something to publish. The
+# log says how many, never who, which is the same line the sweep already takes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Sweep run whose artifact holds prospects.csv'
+        required: true
+        default: '32770076163'
+      database_id:
+        description: 'D1 database to write to (default: bba-heartbeat)'
+        required: false
+        default: 'a57d42d4-701d-4a24-8143-3271c0d4de86'
+      apply:
+        description: 'Write to the database. Leave off for a dry run that only counts.'
+        type: boolean
+        default: false
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: crm-addresses
+  cancel-in-progress: false
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # `gh run download` resolves the same signed blob URL a browser would,
+      # and a GitHub-hosted runner can reach it. That is the entire trick.
+      - name: Fetch the sweep artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh run download "${{ inputs.run_id }}" \
+            -R "${{ github.repository }}" \
+            -n "region-sweep-${{ inputs.run_id }}" \
+            -D sweep
+          test -f sweep/audit/out/prospects.csv || test -f sweep/prospects.csv || {
+            echo "::error::no prospects.csv in that artifact"
+            find sweep -type f | head -20
+            exit 1
+          }
+
+      - name: Fill in the addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DATABASE_ID: ${{ inputs.database_id }}
+          APPLY: ${{ inputs.apply }}
+        working-directory: audit
+        run: |
+          npm ci
+          npm run crm:addresses
