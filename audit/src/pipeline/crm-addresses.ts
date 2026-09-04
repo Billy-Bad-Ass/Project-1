@@ -18,7 +18,8 @@
  * public with it. The count is the finding; the list is not. Same line the
  * sweep already takes in "Say how many, without saying what".
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
 export interface CsvRow {
   name?: string;
@@ -123,6 +124,39 @@ export function planUpdates(rows: CsvRow[], clients: CrmRow[]): Plan {
 /** Both layouts the artifact has used. */
 const CSV_CANDIDATES = ['sweep/audit/out/prospects.csv', 'sweep/prospects.csv'];
 
+/**
+ * The drafts directory, which is where the addresses actually are.
+ *
+ * The sweep workflow's artifact list promises `audit/out/prospects.csv` and
+ * the 24 Aug artifact does not contain it — the same broken promise
+ * sweep-records.test.ts was written about. What it does contain is one draft
+ * per business under `emails/`, each beginning:
+ *
+ *     To:      someone@example.com
+ *
+ * or `To:      (find their email)` when the finder came up empty. The file is
+ * named after the host, which is the join key we need anyway.
+ *
+ * So the drafts are read as a fallback. A run whose CSV does exist still
+ * prefers the CSV, because it carries phone numbers too.
+ */
+const DRAFT_DIRS = ['sweep/emails', 'sweep/audit/out/emails'];
+
+const NO_ADDRESS = /^\(.*\)$/;
+
+export function fromDrafts(dir: string, names: string[], read: (f: string) => string): CsvRow[] {
+  const rows: CsvRow[] = [];
+  for (const name of names) {
+    if (!name.endsWith('.txt')) continue;
+    const host = basename(name, '.txt');
+    const first = read(join(dir, name)).split('\n', 1)[0] ?? '';
+    const to = first.startsWith('To:') ? first.slice(3).trim() : '';
+    if (!to || NO_ADDRESS.test(to)) continue;
+    rows.push({ name: host, website: host, email: to, phone: '' });
+  }
+  return rows;
+}
+
 async function main(): Promise<void> {
   const token = process.env.CLOUDFLARE_API_TOKEN;
   const account = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -137,8 +171,19 @@ async function main(): Promise<void> {
   }
 
   const csv = CSV_CANDIDATES.find((p) => existsSync(p));
-  if (!csv) {
-    console.error(`::error::no prospects.csv found (looked in ${CSV_CANDIDATES.join(', ')})`);
+  const draftDir = DRAFT_DIRS.find((d) => existsSync(d));
+
+  let rows: CsvRow[];
+  if (csv) {
+    rows = parseCsv(readFileSync(csv, 'utf8'));
+    console.log(`source: ${csv}`);
+  } else if (draftDir) {
+    rows = fromDrafts(draftDir, readdirSync(draftDir), (f) => readFileSync(f, 'utf8'));
+    console.log(`source: ${draftDir} (no prospects.csv in this artifact)`);
+  } else {
+    console.error(
+      `::error::nothing to read — no ${CSV_CANDIDATES.join(' or ')}, and no ${DRAFT_DIRS.join(' or ')}`,
+    );
     process.exit(1);
   }
 
@@ -163,7 +208,6 @@ async function main(): Promise<void> {
     return body.result?.[0]?.results ?? [];
   };
 
-  const rows = parseCsv(readFileSync(csv, 'utf8'));
   const withAddress = rows.filter((r) => r.email).length;
   console.log(`artifact: ${rows.length} businesses, ${withAddress} with an address`);
 
