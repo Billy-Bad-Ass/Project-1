@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { parseCsv, planUpdates, siteKey } from './crm-addresses';
+import { fromDrafts, parseCsv, planUpdates, siteKey } from './crm-addresses';
 
 /**
  * The two ways this can silently do nothing: a CSV parsed into the wrong
@@ -66,4 +66,34 @@ test('a row with no address is never counted as unmatched', () => {
   ]);
   assert.equal(plan.fill.length, 0, 'the only matching row has no address in the artifact');
   assert.equal(plan.noMatch, 4, 'the four rows that do have an address have no CRM row here');
+});
+
+/**
+ * The 24 Aug artifact contains no prospects.csv at all — the sweep's upload
+ * list promised one that nothing wrote, which is the broken promise
+ * sweep-records.test.ts exists about. The addresses are in the drafts instead.
+ */
+test('reads addresses out of the drafts when there is no CSV', () => {
+  const files = {
+    'allheartdentalcare.com.txt': 'To:      hello@example.com\nSubject: your phone number\n\nHi,\n',
+    'macalikdds.com.txt': 'To:      (find their email)\nSubject: your heading\n\nHi,\n',
+    'notes.md': 'To:      trap@example.com\n',
+  };
+  const rows = fromDrafts('d', Object.keys(files), (f) => files[f.slice(2) as keyof typeof files]);
+  assert.equal(rows.length, 1, 'only the one draft with a real address');
+  assert.equal(rows[0]?.email, 'hello@example.com');
+  assert.equal(rows[0]?.website, 'allheartdentalcare.com');
+});
+
+test('a draft address still joins to the CRM row', () => {
+  const rows = fromDrafts(
+    'd',
+    ['allheartdentalcare.com.txt'],
+    () => 'To:      hello@example.com\nSubject: x\n',
+  );
+  const plan = planUpdates(rows, [
+    { id: 9, website: 'https://www.allheartdentalcare.com/', email: null },
+  ]);
+  assert.equal(plan.fill.length, 1);
+  assert.equal(plan.fill[0]?.id, '9');
 });
