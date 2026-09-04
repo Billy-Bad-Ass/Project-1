@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { fromDrafts, parseCsv, planUpdates, siteKey } from './crm-addresses';
+import { fromDrafts, parseCsv, planUpdates, siteKey, tallyDrafts } from './crm-addresses';
 
 /**
  * The two ways this can silently do nothing: a CSV parsed into the wrong
@@ -96,4 +96,21 @@ test('a draft address still joins to the CRM row', () => {
   ]);
   assert.equal(plan.fill.length, 1);
   assert.equal(plan.fill[0]?.id, '9');
+});
+
+// "0 businesses" cannot tell you whether the drafts hold no addresses or the
+// reader is broken, and those need opposite fixes.
+test('says why each draft was rejected, without naming anyone', () => {
+  const files = {
+    'a.com.txt': 'To:      real@example.com\n',
+    'b.com.txt': 'To:      (find their email)\n',
+    'c.com.txt': 'Subject: no To line at all\n',
+    'd.com.txt': 'To:      not-an-address\n',
+    'notes.md': 'To:      trap@example.com\n',
+  };
+  const t = tallyDrafts('d', Object.keys(files), (f) => files[f.slice(2) as keyof typeof files]);
+  assert.equal(t.drafts, 4, 'the .md is not a draft');
+  assert.equal(t.rows.length, 1);
+  assert.equal(t.placeholder, 2, 'the placeholder and the non-address');
+  assert.equal(t.noToLine, 1);
 });

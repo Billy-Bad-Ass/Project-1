@@ -153,17 +153,47 @@ const DRAFT_DIRS = [join(SWEEP, 'emails'), join(SWEEP, 'audit/out/emails')];
 
 const NO_ADDRESS = /^\(.*\)$/;
 
-export function fromDrafts(dir: string, names: string[], read: (f: string) => string): CsvRow[] {
-  const rows: CsvRow[] = [];
+export interface DraftTally {
+  rows: CsvRow[];
+  drafts: number;
+  placeholder: number;
+  noToLine: number;
+}
+
+/**
+ * Read the drafts, and count what was rejected and why.
+ *
+ * "0 businesses" on its own cannot tell you whether the drafts hold no
+ * addresses or the reader is broken, and those need opposite fixes. The tally
+ * separates them without printing a single address.
+ */
+export function tallyDrafts(
+  dir: string,
+  names: string[],
+  read: (f: string) => string,
+): DraftTally {
+  const t: DraftTally = { rows: [], drafts: 0, placeholder: 0, noToLine: 0 };
   for (const name of names) {
     if (!name.endsWith('.txt')) continue;
+    t.drafts++;
     const host = basename(name, '.txt');
     const first = read(join(dir, name)).split('\n', 1)[0] ?? '';
     const to = first.startsWith('To:') ? first.slice(3).trim() : '';
-    if (!to || NO_ADDRESS.test(to)) continue;
-    rows.push({ name: host, website: host, email: to, phone: '' });
+    if (!to) {
+      t.noToLine++;
+      continue;
+    }
+    if (NO_ADDRESS.test(to) || !to.includes('@')) {
+      t.placeholder++;
+      continue;
+    }
+    t.rows.push({ name: host, website: host, email: to, phone: '' });
   }
-  return rows;
+  return t;
+}
+
+export function fromDrafts(dir: string, names: string[], read: (f: string) => string): CsvRow[] {
+  return tallyDrafts(dir, names, read).rows;
 }
 
 async function main(): Promise<void> {
@@ -187,8 +217,20 @@ async function main(): Promise<void> {
     rows = parseCsv(readFileSync(csv, 'utf8'));
     console.log(`source: ${csv}`);
   } else if (draftDir) {
-    rows = fromDrafts(draftDir, readdirSync(draftDir), (f) => readFileSync(f, 'utf8'));
+    const t = tallyDrafts(draftDir, readdirSync(draftDir), (f) => readFileSync(f, 'utf8'));
+    rows = t.rows;
     console.log(`source: ${draftDir} (no prospects.csv in this artifact)`);
+    console.log(
+      `drafts: ${t.drafts} read, ${t.rows.length} with a real address, ` +
+        `${t.placeholder} still saying "find their email", ${t.noToLine} with no To: line`,
+    );
+    if (t.drafts > 0 && t.rows.length === 0) {
+      console.log(
+        '::warning::this artifact carries no addresses at all. The finder never filled them in, ' +
+          'so there is nothing here to rescue before it expires — run the sweep again with ' +
+          '"npm run emails" working.',
+      );
+    }
   } else {
     console.error(
       `::error::nothing to read — no ${CSV_CANDIDATES.join(' or ')}, and no ${DRAFT_DIRS.join(' or ')}`,
@@ -212,6 +254,14 @@ async function main(): Promise<void> {
     };
     if (!res.ok || body.success === false) {
       const why = (body.errors ?? []).map((e) => `${e.code} ${e.message}`).join('; ');
+      if (res.status === 403 || res.status === 401) {
+        // Worth naming precisely: this repository's Cloudflare token is scoped
+        // for Pages and R2, not D1, so it authenticates and then refuses. That
+        // is a permissions gap to fix on the token, not a bug here.
+        throw new Error(
+          `D1 ${res.status} — CLOUDFLARE_API_TOKEN cannot reach D1. It needs Account / D1 / Edit. (${why})`,
+        );
+      }
       throw new Error(`D1 ${res.status}${why ? ` — ${why}` : ''}`);
     }
     return body.result?.[0]?.results ?? [];
