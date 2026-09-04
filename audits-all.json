@@ -1,0 +1,448 @@
+[
+  {
+    "url": "https://www.dentalhealthcenterofnorthernvirginia.com/",
+    "finalUrl": "https://www.dentalhealthcenterofnorthernvirginia.com/",
+    "fetchedAt": "2026-09-04T23:39:57.641Z",
+    "error": null,
+    "status": 200,
+    "loadMs": 329,
+    "findings": [
+      {
+        "ruleId": "social-preview",
+        "severity": "medium",
+        "category": "conversion",
+        "title": "Shared links show up bare on social media and WhatsApp",
+        "detail": "The page has no Open Graph title or image.",
+        "impact": "When a customer shares your link, it appears as a naked URL with no picture. Word of mouth is your cheapest marketing, and this makes it look untrustworthy.",
+        "fix": "Add og:title, og:description and a 1200x630 og:image so shared links show a proper preview card."
+      },
+      {
+        "ruleId": "image-sizing",
+        "severity": "medium",
+        "category": "speed",
+        "title": "The page jumps around while it loads",
+        "detail": "19 of 19 images do not declare their width and height.",
+        "impact": "The browser cannot reserve space, so content shifts as each image arrives. This is the effect where someone goes to tap a button and it moves — it is measured by Google and it frustrates visitors.",
+        "fix": "Add width and height attributes to every <img>. The values only need the correct ratio, not the display size."
+      },
+      {
+        "ruleId": "script-count",
+        "severity": "medium",
+        "category": "speed",
+        "title": "Many scripts block the page from displaying",
+        "detail": "10 of 13 external scripts load without async or defer.",
+        "impact": "Each one pauses the page while it downloads and runs, so the visitor stares at a blank or half-drawn screen for longer. Tracking and chat widgets are the usual culprits.",
+        "fix": "Add defer to scripts that are not needed immediately, and audit whether every third-party widget still earns its place.",
+        "evidence": "10 render-blocking scripts"
+      },
+      {
+        "ruleId": "sitemap",
+        "severity": "low",
+        "category": "technical",
+        "title": "robots.txt does not mention a sitemap",
+        "detail": "A robots.txt exists but contains no Sitemap: line.",
+        "impact": "Search engines have to discover your pages by following links. A sitemap lists them explicitly, which matters most for pages that are not linked prominently.",
+        "fix": "Add \"Sitemap: https://yourdomain.com/sitemap.xml\" to robots.txt."
+      },
+      {
+        "ruleId": "title-tag",
+        "severity": "low",
+        "category": "findability",
+        "title": "The page title will be cut off in search results",
+        "detail": "The title is 67 characters, and Google truncates around 60.",
+        "impact": "The end of the title is replaced with an ellipsis, so any wording placed there is not read by anyone.",
+        "fix": "Shorten to about 60 characters, putting the most important words first.",
+        "evidence": "Dental Health Center of Northern Virginia | Dentist Falls Church VA"
+      },
+      {
+        "ruleId": "canonical-url",
+        "severity": "low",
+        "category": "findability",
+        "title": "No canonical URL is declared",
+        "detail": "The page does not state which address is its official one.",
+        "impact": "If the same page is reachable at several addresses (with and without www, with tracking parameters), search engines may treat them as separate pages and split the ranking value between them.",
+        "fix": "Add a <link rel=\"canonical\"> pointing at the preferred address of each page."
+      },
+      {
+        "ruleId": "image-sizing",
+        "severity": "low",
+        "category": "speed",
+        "title": "All images download immediately, even ones far down the page",
+        "detail": "19 images on the page and 19 load eagerly.",
+        "impact": "Bandwidth is spent on images the visitor may never scroll to, delaying the ones they can actually see.",
+        "fix": "Add loading=\"lazy\" to images below the fold, leaving the top-most image eager."
+      }
+    ],
+    "passed": [
+      "mobile-viewport",
+      "http-status",
+      "favicon",
+      "contact-method",
+      "call-to-action",
+      "https",
+      "privacy-policy",
+      "meta-description",
+      "heading-structure",
+      "structured-data",
+      "indexability",
+      "document-weight",
+      "response-time",
+      "image-alt",
+      "html-lang",
+      "form-labels"
+    ],
+    "healthScore": 63,
+    "opportunityScore": 60
+  },
+  {
+    "url": "https://www.fallschurchmoderndentistry.com/",
+    "finalUrl": "https://www.fallschurchmoderndentistry.com/",
+    "fetchedAt": "2026-09-04T23:39:58.302Z",
+    "error": null,
+    "status": 200,
+    "loadMs": 127,
+    "findings": [
+      {
+        "ruleId": "social-preview",
+        "severity": "medium",
+        "category": "conversion",
+        "title": "Shared links show up bare on social media and WhatsApp",
+        "detail": "The page has no Open Graph title or image.",
+        "impact": "When a customer shares your link, it appears as a naked URL with no picture. Word of mouth is your cheapest marketing, and this makes it look untrustworthy.",
+        "fix": "Add og:title, og:description and a 1200x630 og:image so shared links show a proper preview card."
+      },
+      {
+        "ruleId": "image-sizing",
+        "severity": "medium",
+        "category": "speed",
+        "title": "The page jumps around while it loads",
+        "detail": "4 of 4 images do not declare their width and height.",
+        "impact": "The browser cannot reserve space, so content shifts as each image arrives. This is the effect where someone goes to tap a button and it moves — it is measured by Google and it frustrates visitors.",
+        "fix": "Add width and height attributes to every <img>. The values only need the correct ratio, not the display size."
+      },
+      {
+        "ruleId": "script-count",
+        "severity": "medium",
+        "category": "speed",
+        "title": "Many scripts block the page from displaying",
+        "detail": "9 of 12 external scripts load without async or defer.",
+        "impact": "Each one pauses the page while it downloads and runs, so the visitor stares at a blank or half-drawn screen for longer. Tracking and chat widgets are the usual culprits.",
+        "fix": "Add defer to scripts that are not needed immediately, and audit whether every third-party widget still earns its place.",
+        "evidence": "9 render-blocking scripts"
+      },
+      {
+        "ruleId": "form-labels",
+        "severity": "medium",
+        "category": "accessibility",
+        "title": "Form fields are unlabeled",
+        "detail": "1 of 2 form fields have no associated label.",
+        "impact": "A screen reader announces these as just \"edit text\", so the visitor cannot tell which box wants their email and which wants their phone number. Placeholder text alone disappears as soon as they start typing, which affects everyone.",
+        "fix": "Give each field a <label for=\"...\"> matching the field id, or an aria-label where a visible label would not suit the design."
+      },
+      {
+        "ruleId": "sitemap",
+        "severity": "low",
+        "category": "technical",
+        "title": "robots.txt does not mention a sitemap",
+        "detail": "A robots.txt exists but contains no Sitemap: line.",
+        "impact": "Search engines have to discover your pages by following links. A sitemap lists them explicitly, which matters most for pages that are not linked prominently.",
+        "fix": "Add \"Sitemap: https://yourdomain.com/sitemap.xml\" to robots.txt."
+      },
+      {
+        "ruleId": "title-tag",
+        "severity": "low",
+        "category": "findability",
+        "title": "The page title will be cut off in search results",
+        "detail": "The title is 71 characters, and Google truncates around 60.",
+        "impact": "The end of the title is replaced with an ellipsis, so any wording placed there is not read by anyone.",
+        "fix": "Shorten to about 60 characters, putting the most important words first.",
+        "evidence": "Local Dentist Office in Falls Church VA | Falls Church Modern Dentistry"
+      }
+    ],
+    "passed": [
+      "mobile-viewport",
+      "http-status",
+      "favicon",
+      "contact-method",
+      "call-to-action",
+      "https",
+      "privacy-policy",
+      "meta-description",
+      "heading-structure",
+      "canonical-url",
+      "structured-data",
+      "indexability",
+      "document-weight",
+      "response-time",
+      "image-alt",
+      "html-lang"
+    ],
+    "healthScore": 61,
+    "opportunityScore": 63
+  },
+  {
+    "url": "https://broadwaydentalnova.com/",
+    "finalUrl": "https://broadwaydentalnova.com/",
+    "fetchedAt": "2026-09-04T23:39:58.281Z",
+    "error": null,
+    "status": 202,
+    "loadMs": 118,
+    "findings": [
+      {
+        "ruleId": "mobile-viewport",
+        "severity": "critical",
+        "category": "technical",
+        "title": "The site is not built for phones",
+        "detail": "The page has no viewport meta tag.",
+        "impact": "On a phone the browser renders the desktop layout shrunk down, so text is unreadable until the visitor pinches and zooms. Most people leave instead. Since the majority of local searches happen on a phone, this is usually the single most expensive problem on a site.",
+        "fix": "Add <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"> and check the layout reflows properly at phone width."
+      },
+      {
+        "ruleId": "contact-method",
+        "severity": "critical",
+        "category": "conversion",
+        "title": "There is no way to get in touch from this page",
+        "detail": "No phone link, no email link and no contact form were found.",
+        "impact": "A visitor ready to buy has to leave and find you elsewhere, and most simply go to a competitor instead. Every other improvement on this list is worth less while this is true.",
+        "fix": "Add a clearly visible phone number and email near the top of the page, and a short contact form."
+      },
+      {
+        "ruleId": "title-tag",
+        "severity": "critical",
+        "category": "findability",
+        "title": "The page has no title",
+        "detail": "There is no <title> tag, so search engines and browser tabs have no name for this page.",
+        "impact": "Google shows the title as the clickable headline in search results. With none, it invents one from the page text, which is usually worse and sometimes wrong.",
+        "fix": "Add a title of roughly 50-60 characters that names the business and what it does, e.g. \"Riverside Dental — Emergency Dentist in Leeds\"."
+      },
+      {
+        "ruleId": "call-to-action",
+        "severity": "high",
+        "category": "conversion",
+        "title": "The page never asks the visitor to act",
+        "detail": "No button or link uses action wording such as \"book\", \"get a quote\", \"contact us\" or \"buy\".",
+        "impact": "Pages that describe a service without asking for the next step convert far worse than ones that do. Visitors rarely go looking for the way forward on their own.",
+        "fix": "Add one prominent button with specific wording — \"Get a free quote\" beats \"Learn more\" — repeated once near the top and once at the bottom."
+      },
+      {
+        "ruleId": "meta-description",
+        "severity": "high",
+        "category": "findability",
+        "title": "No description for search results",
+        "detail": "The page has no meta description tag.",
+        "impact": "This is the two-line sales pitch under your link on Google. Without it, Google scrapes an arbitrary sentence from the page — often a cookie notice or a menu — which costs clicks.",
+        "fix": "Add a 140-155 character description that says what you offer and why to choose you, ending with a reason to click."
+      },
+      {
+        "ruleId": "social-preview",
+        "severity": "medium",
+        "category": "conversion",
+        "title": "Shared links show up bare on social media and WhatsApp",
+        "detail": "The page has no Open Graph title or image.",
+        "impact": "When a customer shares your link, it appears as a naked URL with no picture. Word of mouth is your cheapest marketing, and this makes it look untrustworthy.",
+        "fix": "Add og:title, og:description and a 1200x630 og:image so shared links show a proper preview card."
+      },
+      {
+        "ruleId": "heading-structure",
+        "severity": "medium",
+        "category": "findability",
+        "title": "The page has no main heading",
+        "detail": "No <h1> element was found.",
+        "impact": "The main heading tells both visitors and search engines what the page is about in one line. Without one, both have to guess from the layout.",
+        "fix": "Add a single H1 near the top stating the page’s purpose in plain words."
+      },
+      {
+        "ruleId": "structured-data",
+        "severity": "medium",
+        "category": "findability",
+        "title": "Search engines are not told what kind of business this is",
+        "detail": "The page contains no structured data (no JSON-LD or microdata).",
+        "impact": "Structured data is how opening hours, address, phone number, price and star ratings appear directly in search results. Competitors showing those take up more space and get more clicks for the same position.",
+        "fix": "Add LocalBusiness or Organization JSON-LD with name, address, phone and opening hours. For products or services, add the matching type."
+      },
+      {
+        "ruleId": "sitemap",
+        "severity": "low",
+        "category": "technical",
+        "title": "No robots.txt file",
+        "detail": "The site has no robots.txt at its root.",
+        "impact": "Not damaging on its own, but it is where you tell search engines where your sitemap is, which helps them find every page rather than only the ones they stumble across.",
+        "fix": "Add a robots.txt containing at minimum a Sitemap: line pointing at your sitemap.xml."
+      },
+      {
+        "ruleId": "canonical-url",
+        "severity": "low",
+        "category": "findability",
+        "title": "No canonical URL is declared",
+        "detail": "The page does not state which address is its official one.",
+        "impact": "If the same page is reachable at several addresses (with and without www, with tracking parameters), search engines may treat them as separate pages and split the ranking value between them.",
+        "fix": "Add a <link rel=\"canonical\"> pointing at the preferred address of each page."
+      },
+      {
+        "ruleId": "html-lang",
+        "severity": "low",
+        "category": "accessibility",
+        "title": "The page does not say what language it is in",
+        "detail": "The <html> element has no lang attribute.",
+        "impact": "Screen readers pick a voice based on this. Without it, English can be read aloud with the wrong pronunciation rules, which makes it hard to follow. Browser translation prompts also rely on it.",
+        "fix": "Set the language on the html element, e.g. <html lang=\"en-GB\">."
+      }
+    ],
+    "passed": [
+      "http-status",
+      "favicon",
+      "https",
+      "privacy-policy",
+      "indexability",
+      "document-weight",
+      "response-time",
+      "image-sizing",
+      "script-count",
+      "image-alt",
+      "form-labels"
+    ],
+    "healthScore": 15,
+    "opportunityScore": 98
+  },
+  {
+    "url": "https://valuevet.net/",
+    "finalUrl": "https://valuevet.net/",
+    "fetchedAt": "2026-09-04T23:40:00.801Z",
+    "error": null,
+    "status": 200,
+    "loadMs": 487,
+    "findings": [
+      {
+        "ruleId": "https",
+        "severity": "high",
+        "category": "trust",
+        "title": "Parts of the secure page load insecurely",
+        "detail": "1 resource(s) are loaded over plain HTTP on an HTTPS page.",
+        "impact": "Browsers block these silently, so images may not appear and features may not work — and it can downgrade the padlock in the address bar.",
+        "fix": "Change those URLs from http:// to https://, or to protocol-relative paths.",
+        "evidence": "http://gmpg.org/xfn/11"
+      },
+      {
+        "ruleId": "meta-description",
+        "severity": "high",
+        "category": "findability",
+        "title": "No description for search results",
+        "detail": "The page has no meta description tag.",
+        "impact": "This is the two-line sales pitch under your link on Google. Without it, Google scrapes an arbitrary sentence from the page — often a cookie notice or a menu — which costs clicks.",
+        "fix": "Add a 140-155 character description that says what you offer and why to choose you, ending with a reason to click."
+      },
+      {
+        "ruleId": "social-preview",
+        "severity": "medium",
+        "category": "conversion",
+        "title": "Shared links show up bare on social media and WhatsApp",
+        "detail": "The page has no Open Graph title or image.",
+        "impact": "When a customer shares your link, it appears as a naked URL with no picture. Word of mouth is your cheapest marketing, and this makes it look untrustworthy.",
+        "fix": "Add og:title, og:description and a 1200x630 og:image so shared links show a proper preview card."
+      },
+      {
+        "ruleId": "script-count",
+        "severity": "medium",
+        "category": "speed",
+        "title": "Many scripts block the page from displaying",
+        "detail": "20 of 22 external scripts load without async or defer.",
+        "impact": "Each one pauses the page while it downloads and runs, so the visitor stares at a blank or half-drawn screen for longer. Tracking and chat widgets are the usual culprits.",
+        "fix": "Add defer to scripts that are not needed immediately, and audit whether every third-party widget still earns its place.",
+        "evidence": "20 render-blocking scripts"
+      },
+      {
+        "ruleId": "heading-structure",
+        "severity": "low",
+        "category": "findability",
+        "title": "The page has several competing main headings",
+        "detail": "Found 4 <h1> elements.",
+        "impact": "When everything is the main heading, nothing is. It dilutes the signal about what this page is actually for.",
+        "fix": "Keep one H1 and demote the rest to H2 or H3, which also improves how screen readers announce the page.",
+        "evidence": "Value Vet | WELCOME TO VALUE VET | STAY UPDATED WITH PET PORTAL"
+      }
+    ],
+    "passed": [
+      "mobile-viewport",
+      "http-status",
+      "favicon",
+      "sitemap",
+      "contact-method",
+      "call-to-action",
+      "privacy-policy",
+      "title-tag",
+      "canonical-url",
+      "structured-data",
+      "indexability",
+      "document-weight",
+      "response-time",
+      "image-sizing",
+      "image-alt",
+      "html-lang",
+      "form-labels"
+    ],
+    "healthScore": 51,
+    "opportunityScore": 74
+  },
+  {
+    "url": "https://www.livewellanimal.com/our-locations/falls-church-va/falls-church/",
+    "finalUrl": "https://www.livewellanimal.com/our-locations/falls-church-va/falls-church/",
+    "fetchedAt": "2026-09-04T23:40:00.304Z",
+    "error": null,
+    "status": 200,
+    "loadMs": 191,
+    "findings": [
+      {
+        "ruleId": "image-sizing",
+        "severity": "medium",
+        "category": "speed",
+        "title": "The page jumps around while it loads",
+        "detail": "29 of 30 images do not declare their width and height.",
+        "impact": "The browser cannot reserve space, so content shifts as each image arrives. This is the effect where someone goes to tap a button and it moves — it is measured by Google and it frustrates visitors.",
+        "fix": "Add width and height attributes to every <img>. The values only need the correct ratio, not the display size."
+      },
+      {
+        "ruleId": "title-tag",
+        "severity": "low",
+        "category": "findability",
+        "title": "The page title will be cut off in search results",
+        "detail": "The title is 185 characters, and Google truncates around 60.",
+        "impact": "The end of the title is replaced with an ellipsis, so any wording placed there is not read by anyone.",
+        "fix": "Shorten to about 60 characters, putting the most important words first.",
+        "evidence": "Veterinarian in Falls Church, VA | Livewell Animal Hospital of Falls Church – Your Trusted Veterinary Clinic for Pet Wellness, Surgery, Emergency Care & More. Book an Appointment Today!"
+      },
+      {
+        "ruleId": "image-sizing",
+        "severity": "low",
+        "category": "speed",
+        "title": "All images download immediately, even ones far down the page",
+        "detail": "30 images on the page and 27 load eagerly.",
+        "impact": "Bandwidth is spent on images the visitor may never scroll to, delaying the ones they can actually see.",
+        "fix": "Add loading=\"lazy\" to images below the fold, leaving the top-most image eager."
+      }
+    ],
+    "passed": [
+      "mobile-viewport",
+      "http-status",
+      "favicon",
+      "sitemap",
+      "contact-method",
+      "call-to-action",
+      "social-preview",
+      "https",
+      "privacy-policy",
+      "meta-description",
+      "heading-structure",
+      "canonical-url",
+      "structured-data",
+      "indexability",
+      "document-weight",
+      "response-time",
+      "script-count",
+      "image-alt",
+      "html-lang",
+      "form-labels"
+    ],
+    "healthScore": 84,
+    "opportunityScore": 30
+  }
+]
