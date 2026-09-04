@@ -16,6 +16,7 @@
     "draft": "tsx src/pipeline/draft-emails.ts",
     "find": "tsx src/pipeline/find-prospects.ts",
     "emails": "tsx src/pipeline/find-emails.ts",
+    "crm:addresses": "tsx src/pipeline/crm-addresses.ts",
     "dashboard": "tsx src/pipeline/dashboard.ts",
     "signature": "tsx src/pipeline/build-signature.ts",
     "shots": "tsx src/pipeline/build-shots.ts",
